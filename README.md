@@ -109,4 +109,4 @@ metadata:
 
 ## 라이선스
 
-ISC
+Apache License 2.0 — [LICENSE](./LICENSE) 참조

@@ -18,7 +18,7 @@
   },
   "keywords": ["ai", "agent", "multi-agent", "orchestrator", "tui", "cli"],
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
     "chalk": "^5.4.1",
