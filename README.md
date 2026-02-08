@@ -1,112 +1,112 @@
 # CasAbot
 
-> **Cassiopeia A** — 초신성 폭발과 같이 모든 것을 자유롭게 창조한다.
+> **Cassiopeia A** — Create anything freely, like a supernova explosion.
 
-스킬 중심 멀티에이전트 오케스트레이터 시스템. base 에이전트가 스킬 문서를 읽고, 서브에이전트를 생성·위임하여 모든 작업을 처리합니다.
+A skill-driven multi-agent orchestrator system. The base agent reads skill documents, spawns sub-agents, and delegates all tasks through them.
 
-## 설치
+## Installation
 
 ```bash
 npm i -g casabot
 ```
 
-## 시작하기
+## Getting Started
 
 ```bash
-# 최초 설정 (공급자, 모델 선택)
+# Initial setup (select provider and model)
 casabot setup
 
-# TUI 대화창 열기
+# Open the TUI chat interface
 casabot
 
-# 설정 초기화
+# Reset to default configuration
 casabot reset
 ```
 
-## 핵심 철학
+## Core Philosophy
 
-- **스킬이 전부다** — base는 코드를 하드코딩하지 않습니다. 스킬 문서(SKILL.md)를 읽고 터미널을 통해 실행합니다. 새 기능이 필요하면 스킬 문서 하나를 추가하면 됩니다.
-- **base는 일하지 않는다** — base는 오케스트레이터입니다. 직접 작업하지 않고, 서브에이전트에게 위임합니다.
+- **Skills are everything** — The base agent doesn't hardcode any logic. It reads skill documents (SKILL.md) and executes them via the terminal. Need a new capability? Just add a skill document.
+- **Base doesn't do the work** — The base agent is purely an orchestrator. It never performs tasks directly — it delegates everything to sub-agents.
 
-## 아키텍처
+## Architecture
 
 ```
-사용자 ↔ TUI (터미널 UI) ↔ base 에이전트 (터미널 권한)
+User ↔ TUI (Terminal UI) ↔ Base Agent (terminal access)
                                │
-                               ├── 스킬 문서 읽기
-                               ├── 터미널 명령 실행
+                               ├── Read skill documents
+                               ├── Execute terminal commands
                                │
-                               ├── 서브에이전트 A (podman 컨테이너)
-                               │     └── 자체 워크스페이스 + 도구
-                               ├── 서브에이전트 B (podman 컨테이너)
-                               │     └── 자체 워크스페이스 + 도구
+                               ├── Sub-agent A (podman container)
+                               │     └── Own workspace + tools
+                               ├── Sub-agent B (podman container)
+                               │     └── Own workspace + tools
                                └── ...
 ```
 
-## 디렉토리 구조
+## Directory Structure
 
 ```
 ~/casabot/
-├── casabot.json          # 모든 설정 (공급자, 모델 등)
-├── skills/               # 스킬 문서 (AgentSkills 표준)
-│   ├── agent/SKILL.md    # 에이전트 생성 및 관리
-│   ├── config/SKILL.md   # CasAbot 설정
-│   ├── chat/SKILL.md     # 대화 관리
-│   ├── service/SKILL.md  # 시스템 서비스 등록
-│   └── memory/SKILL.md   # 기록 관리
-├── workspaces/           # 에이전트별 워크스페이스
-├── history/              # 대화 전체 기록 (원본 로그)
-└── memory/               # 에이전트가 작성한 메모 (.md)
+├── casabot.json          # All configuration (providers, models, etc.)
+├── skills/               # Skill documents (AgentSkills standard)
+│   ├── agent/SKILL.md    # Agent creation and management
+│   ├── config/SKILL.md   # CasAbot configuration
+│   ├── chat/SKILL.md     # Conversation management
+│   ├── service/SKILL.md  # System service registration
+│   └── memory/SKILL.md   # Memory management
+├── workspaces/           # Per-agent workspaces
+├── history/              # Full conversation logs (raw)
+└── memory/               # Agent-authored notes (.md)
 ```
 
-## 지원 공급자
+## Supported Providers
 
-| 공급자 | 타입 |
-|--------|------|
+| Provider | Type |
+|----------|------|
 | OpenAI | `openai` |
 | Anthropic | `anthropic` |
 | Hugging Face | `huggingface` |
 | OpenRouter | `openrouter` |
-| 커스텀 (OpenAI 호환) | `custom-openai` |
-| 커스텀 (Anthropic 호환) | `custom-anthropic` |
+| Custom (OpenAI-compatible) | `custom-openai` |
+| Custom (Anthropic-compatible) | `custom-anthropic` |
 
-## 기본 제공 스킬
+## Built-in Skills
 
-| 스킬 | 설명 |
-|------|------|
-| `agent` | podman 기반 서브에이전트 생성, 위임, 관리 |
-| `config` | CasAbot 설정 구조 및 변경 방법 |
-| `chat` | 대화 세션 관리 및 검색 |
-| `service` | systemd 서비스 등록 및 자동화 |
-| `memory` | 기록 작성, 조회, 검색 |
+| Skill | Description |
+|-------|-------------|
+| `agent` | Create, delegate to, and manage podman-based sub-agents |
+| `config` | CasAbot configuration structure and modification |
+| `chat` | Conversation session management and search |
+| `service` | systemd service registration and automation |
+| `memory` | Write, query, and search agent notes |
 
-## 스킬 추가
+## Adding Skills
 
-`~/casabot/skills/` 아래에 디렉토리를 만들고 `SKILL.md`를 작성하면 됩니다.
+Create a directory under `~/casabot/skills/` and write a `SKILL.md` file:
 
 ```yaml
 ---
-name: 스킬이름
-description: 스킬 설명
+name: skill-name
+description: What this skill does
 metadata:
   casabot:
     requires:
       bins: []
 ---
 
-# 스킬 제목
+# Skill Title
 
-(base가 읽고 해석하여 터미널로 실행할 지침)
+(Instructions for the base agent to read, interpret, and execute via terminal)
 ```
 
-## 기술 스택
+## Tech Stack
 
-- **런타임**: Node.js
-- **언어**: TypeScript
+- **Runtime**: Node.js
+- **Language**: TypeScript
 - **TUI**: [Ink](https://github.com/vadimdemedes/ink) (React for CLI)
-- **컨테이너**: podman
-- **LLM SDK**: OpenAI, Anthropic
+- **Containers**: podman
+- **LLM SDKs**: OpenAI, Anthropic
 
-## 라이선스
+## License
 
-Apache License 2.0 — [LICENSE](./LICENSE) 참조
+Apache License 2.0 — see [LICENSE](./LICENSE)
