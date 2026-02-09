@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { render, Box, Text, useInput, useApp, useStdout } from "ink";
 import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
@@ -9,12 +9,16 @@ import type { ChatProvider } from "../providers/base.js";
 import type { ConversationHistory, Message, Skill } from "../config/types.js";
 import { runAgent } from "../agent/base.js";
 
-marked.use(markedTerminal());
+marked.use(
+  markedTerminal({
+    showSectionPrefix: false,
+    tab: 2,
+  }),
+);
+marked.use({ gfm: true });
 
 function renderMarkdown(content: string): string {
-  const result = marked.parse(content);
-  if (typeof result === "string") return result.trimEnd();
-  return content;
+  return (marked.parse(content, { async: false }) as string).trimEnd();
 }
 
 function truncateOutput(content: string, maxLines = 8): string {
@@ -51,6 +55,47 @@ function estimateMessageLines(message: Message, width: number): number {
     return 2 + countLines(message.content);
   }
   return 2;
+}
+
+function useMouseWheel(
+  onScrollUp: () => void,
+  onScrollDown: () => void,
+): void {
+  const { stdout } = useStdout();
+  const scrollUpRef = useRef(onScrollUp);
+  const scrollDownRef = useRef(onScrollDown);
+
+  useEffect(() => {
+    scrollUpRef.current = onScrollUp;
+    scrollDownRef.current = onScrollDown;
+  });
+
+  useEffect(() => {
+    if (!process.stdin.isTTY) return;
+
+    const ENABLE_MOUSE = "\x1b[?1000h\x1b[?1006h";
+    const DISABLE_MOUSE = "\x1b[?1000l\x1b[?1006l";
+    stdout.write(ENABLE_MOUSE);
+
+    const sgrRegex = /\x1b\[<(\d+);\d+;\d+M/g;
+
+    const handleData = (data: Buffer): void => {
+      const str = data.toString("utf8");
+      let match;
+      while ((match = sgrRegex.exec(str)) !== null) {
+        const button = parseInt(match[1], 10);
+        if (button === 64) scrollUpRef.current();
+        if (button === 65) scrollDownRef.current();
+      }
+      sgrRegex.lastIndex = 0;
+    };
+
+    process.stdin.on("data", handleData);
+    return () => {
+      process.stdin.off("data", handleData);
+      stdout.write(DISABLE_MOUSE);
+    };
+  }, [stdout]);
 }
 
 function HRule({ width }: { width: number }): React.ReactElement {
@@ -331,15 +376,25 @@ function App({
     [isProcessing, provider, conversation, skills],
   );
 
+  const scrollUp = useCallback(() => {
+    setScrollOffset((prev) => Math.min(prev + 1, maxScrollOffset));
+  }, [maxScrollOffset]);
+
+  const scrollDown = useCallback(() => {
+    setScrollOffset((prev) => Math.max(prev - 1, 0));
+  }, []);
+
+  useMouseWheel(scrollUp, scrollDown);
+
   useInput((ch, key) => {
     if (key.ctrl && ch === "c") {
       exit();
     }
     if (key.upArrow) {
-      setScrollOffset((prev) => Math.min(prev + 1, maxScrollOffset));
+      scrollUp();
     }
     if (key.downArrow) {
-      setScrollOffset((prev) => Math.max(prev - 1, 0));
+      scrollDown();
     }
   });
 
@@ -406,7 +461,7 @@ function App({
       </Box>
 
       <Box paddingX={2} justifyContent="space-between">
-        <Text dimColor>{"Ctrl+C exit  ↑↓ scroll"}</Text>
+        <Text dimColor>{"Ctrl+C exit  ↑↓/wheel scroll"}</Text>
         <Text dimColor>
           {userCount} {userCount === 1 ? "message" : "messages"}
         </Text>
