@@ -3,18 +3,17 @@ import { render, Box, Text, Static, useInput, useApp, useStdout } from "ink";
 import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
 import Gradient from "ink-gradient";
-import { marked } from "marked";
+import { Marked } from "marked";
 import { markedTerminal } from "marked-terminal";
 import type { ChatProvider } from "../providers/base.js";
 import type { ConversationHistory, Message, Skill } from "../config/types.js";
 import { runAgent } from "../agent/base.js";
 
-marked.use({ gfm: true });
-
 function renderMarkdown(content: string): string {
   const width = Math.max((process.stdout.columns ?? 80) - 8, 40);
-  marked.use(markedTerminal({ showSectionPrefix: false, tab: 2, width }));
-  return (marked.parse(content, { async: false }) as string).trimEnd();
+  const md = new Marked({ gfm: true });
+  md.use(markedTerminal({ showSectionPrefix: false, tab: 2, width, reflowText: true }));
+  return (md.parse(content, { async: false }) as string).trimEnd();
 }
 
 function truncateOutput(content: string, maxLines = 8): string {
