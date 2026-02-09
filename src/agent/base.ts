@@ -6,6 +6,8 @@ import { formatSkillsForPrompt } from "../skills/loader.js";
 import { CASABOT_HOME } from "../config/manager.js";
 
 const MAX_ITERATIONS = 20;
+const MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 2000;
 
 function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) return Promise.reject(new Error("AbortError"));
@@ -76,11 +78,24 @@ export async function* runAgent(
     ];
 
     let assistantMsg: Message;
-    try {
-      assistantMsg = await raceAbort(provider.chat(messagesWithSystem, tools), signal);
-    } catch (err: unknown) {
-      if (signal.aborted) return;
-      throw err;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        assistantMsg = await raceAbort(provider.chat(messagesWithSystem, tools), signal);
+        break;
+      } catch (err: unknown) {
+        if (signal.aborted) return;
+        if (attempt >= MAX_RETRIES) throw err;
+
+        const delay = RETRY_BASE_DELAY_MS * 2 ** attempt;
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        const retryMsg: Message = {
+          role: "assistant",
+          content: `⏳ API request failed: ${errorMsg}. Retrying in ${delay}ms... (${attempt + 1}/${MAX_RETRIES})`,
+        };
+        yield retryMsg;
+
+        await raceAbort(new Promise((resolve) => setTimeout(resolve, delay)), signal);
+      }
     }
 
     await appendMessage(conversation, assistantMsg);

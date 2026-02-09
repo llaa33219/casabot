@@ -17,15 +17,62 @@ This manual explains how the base agent creates and manages podman-based sub-age
 
 podman must be installed before creating sub-agents.
 
-```bash
-# Check installation
-which podman
+### Step 1: Check if podman is already installed
 
-# If not installed (Debian/Ubuntu)
+```bash
+which podman && podman --version
+```
+
+If podman is found, skip to Section 2.
+
+### Step 2: Gather requirements from the user
+
+> **Important:** Before installing podman, you **must** ask the user the following questions. Do not assume or proceed without their answers.
+
+1. **Detect or ask the distro:**
+   ```bash
+   cat /etc/os-release
+   ```
+   If the distro cannot be determined, ask the user: *"Which Linux distribution are you using? (e.g. Ubuntu, Fedora, Arch, Debian, RHEL, etc.)"*
+
+2. **Ask about sudo privileges:**
+   *"Do you have sudo (root) privileges on this system?"*
+   — If the user does not have sudo, guide them to request it from an administrator, or suggest rootless podman setup if possible.
+
+3. **Ask about rootless mode:**
+   *"Would you like to run podman in rootless mode (recommended for security)?"*
+
+4. **Ask about special requirements:**
+   *"Do you have any specific requirements? (e.g. a particular podman version, a custom storage location, proxy settings, etc.)"*
+
+### Step 3: Install podman based on user's answers
+
+```bash
+# Debian / Ubuntu
 sudo apt update && sudo apt install -y podman
 
-# If not installed (Fedora/RHEL)
+# Fedora / RHEL / CentOS
 sudo dnf install -y podman
+
+# Arch Linux
+sudo pacman -S podman
+
+# openSUSE
+sudo zypper install -y podman
+```
+
+If the user requested rootless mode, also configure subuid/subgid:
+
+```bash
+sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $(whoami)
+podman system migrate
+```
+
+### Step 4: Verify installation
+
+```bash
+podman --version
+podman info
 ```
 
 ## 2. Configure podman storage

@@ -8,12 +8,16 @@ import { markedTerminal } from "marked-terminal";
 import type { ChatProvider } from "../providers/base.js";
 import type { ConversationHistory, Message, Skill } from "../config/types.js";
 import { runAgent } from "../agent/base.js";
+
 import {
   createConversation,
   listConversations,
   saveConversation,
   appendMessage,
 } from "../history/store.js";
+
+const BRAND_BLUE = "#2BADEE";
+const BRAND_RED = "#EA3A23";
 
 function renderMarkdown(content: string): string {
   const width = Math.max((process.stdout.columns ?? 80) - 8, 40);
@@ -56,7 +60,7 @@ function HeaderBlock({ columns }: { columns: number }): React.ReactElement {
   return (
     <Box flexDirection="column" paddingTop={1} width={columns}>
       <Box paddingX={2}>
-        <Gradient name="vice">
+        <Gradient colors={[BRAND_RED, BRAND_BLUE]}>
           <Text bold>{"✦  CasAbot"}</Text>
         </Gradient>
       </Box>
@@ -73,7 +77,7 @@ function HeaderBlock({ columns }: { columns: number }): React.ReactElement {
 function UserMessageView({ content, columns }: { content: string; columns: number }): React.ReactElement {
   return (
     <Box flexDirection="column" paddingX={2} marginTop={1} width={columns}>
-      <Text color="green" bold>
+      <Text color={BRAND_RED} bold>
         {"▶ You"}
       </Text>
       <Box marginLeft={2} width={Math.max(columns - 6, 10)}>
@@ -92,7 +96,7 @@ function AssistantMessageView({
 }): React.ReactElement {
   return (
     <Box flexDirection="column" paddingX={2} marginTop={1} width={columns}>
-      <Text color="cyan" bold>
+      <Text color={BRAND_BLUE} bold>
         {"✦ CasAbot"}
       </Text>
       <Box marginLeft={2} width={Math.max(columns - 6, 10)}>
@@ -112,7 +116,7 @@ function ToolCallsView({
   const boxWidth = Math.max(columns - 6, 10);
   return (
     <Box flexDirection="column" paddingX={2} marginTop={1} width={columns}>
-      <Text color="cyan" bold>
+      <Text color={BRAND_BLUE} bold>
         {"✦ CasAbot"}
       </Text>
       {message.content ? (
@@ -277,7 +281,7 @@ function HistoryBrowser({
   return (
     <Box flexDirection="column" paddingTop={1} width={columns}>
       <Box paddingX={2}>
-        <Gradient name="vice">
+        <Gradient colors={[BRAND_RED, BRAND_BLUE]}>
           <Text bold>{"📋 Session History"}</Text>
         </Gradient>
       </Box>
@@ -317,14 +321,14 @@ function HistoryBrowser({
             return (
               <Box key={conv.id} width={boxWidth - 4}>
                 <Text
-                  color={isSelected ? "cyan" : undefined}
+                  color={isSelected ? BRAND_BLUE : undefined}
                   bold={isSelected}
                   dimColor={!isSelected}
                 >
                   {isSelected ? " ▶ " : "   "}
                 </Text>
                 <Text
-                  color={isSelected ? "cyan" : undefined}
+                  color={isSelected ? BRAND_BLUE : undefined}
                   bold={isSelected}
                   dimColor={!isSelected}
                 >
@@ -339,7 +343,7 @@ function HistoryBrowser({
                   {preview}
                 </Text>
                 {isCurrent ? (
-                  <Text color="green" bold>{" (current)"}</Text>
+                  <Text color={BRAND_RED} bold>{" (current)"}</Text>
                 ) : null}
                 <Text dimColor>
                   {` [${msgCount}]`}
@@ -545,12 +549,12 @@ function App({
       <Box paddingX={1} width={columns}>
         <Box
           borderStyle="round"
-          borderColor={isProcessing ? "gray" : "cyan"}
+          borderColor={isProcessing ? "gray" : BRAND_BLUE}
           paddingX={1}
           width={Math.max(columns - 2, 10)}
           overflow="hidden"
         >
-          <Text color="cyan" bold>
+          <Text color={BRAND_BLUE} bold>
             {"❯ "}
           </Text>
           <TextInput
