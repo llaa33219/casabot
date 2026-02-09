@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { createRequire } from "module";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { Command } from "commander";
 import { loadConfig, saveConfig, getDefaultConfig, ensureDirectories } from "../config/manager.js";
 import { createProvider } from "../providers/index.js";
@@ -7,6 +10,28 @@ import { loadSkills } from "../skills/loader.js";
 import { createConversation } from "../history/store.js";
 import { startTUI } from "../tui/app.js";
 import { setupWizard } from "./setup.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+async function displayLogo(): Promise<void> {
+  try {
+    const require = createRequire(import.meta.url);
+    const asciify = require("asciify-image") as (
+      path: string,
+      opts: Record<string, unknown>,
+    ) => Promise<string>;
+    const logoPath = join(__dirname, "..", "..", "Logo2.png");
+    const ascii = await asciify(logoPath, {
+      fit: "box",
+      width: "50%",
+      color: true,
+    });
+    console.log(ascii);
+    console.log("");
+  } catch {
+    // Logo display is non-critical; silently skip on failure
+  }
+}
 
 const program = new Command();
 
@@ -70,6 +95,7 @@ program
       const skills = await loadSkills();
       const conversation = createConversation();
 
+      await displayLogo();
       startTUI(provider, conversation, skills);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

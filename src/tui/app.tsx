@@ -129,12 +129,12 @@ function ToolCallsView({
         marginLeft={2}
         marginTop={1}
         borderStyle="round"
-        borderColor="yellow"
+        borderColor={BRAND_RED}
         paddingX={1}
         width={boxWidth}
         overflow="hidden"
       >
-        <Text color="yellow" bold>
+        <Text color={BRAND_RED} bold>
           {"⚡ Tool Calls"}
         </Text>
         {message.toolCalls?.map((tc, i) => {
@@ -223,10 +223,10 @@ function WelcomeHint({ columns }: { columns: number }): React.ReactElement {
 function ProcessingIndicator({ columns }: { columns: number }): React.ReactElement {
   return (
     <Box paddingX={2} marginTop={1} gap={1} width={columns}>
-      <Text color="yellow">
+      <Text color={BRAND_BLUE}>
         <Spinner type="dots" />
       </Text>
-      <Text color="yellow">{"Thinking…"}</Text>
+      <Text color={BRAND_BLUE}>{"Thinking…"}</Text>
     </Box>
   );
 }
@@ -290,10 +290,10 @@ function HistoryBrowser({
 
       {isLoading ? (
         <Box paddingX={2} marginTop={1} gap={1}>
-          <Text color="yellow">
+          <Text color={BRAND_BLUE}>
             <Spinner type="dots" />
           </Text>
-          <Text color="yellow">{"Loading sessions…"}</Text>
+          <Text color={BRAND_BLUE}>{"Loading sessions…"}</Text>
         </Box>
       ) : conversations.length === 0 ? (
         <Box paddingX={2} marginTop={1}>

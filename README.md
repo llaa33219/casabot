@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Logo.svg" alt="CasAbot" width="480" />
+</p>
+
 # CasAbot
 
 > **Cassiopeia A** — Create anything freely, like a supernova explosion.
