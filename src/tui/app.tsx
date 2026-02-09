@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { render, Box, Text, useInput, useApp, useStdout } from "ink";
 import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
@@ -24,6 +24,33 @@ function truncateOutput(content: string, maxLines = 8): string {
     lines.slice(0, maxLines).join("\n") +
     `\n  … ${lines.length - maxLines} more lines`
   );
+}
+
+function estimateMessageLines(message: Message, width: number): number {
+  const contentWidth = Math.max(width - 10, 20);
+  const countLines = (text: string): number =>
+    text.split("\n").reduce(
+      (sum, line) =>
+        sum + Math.max(1, Math.ceil((line.length || 1) / contentWidth)),
+      0,
+    );
+
+  if (message.role === "user") {
+    return 2 + countLines(message.content);
+  }
+  if (message.role === "tool") {
+    return 3 + countLines(truncateOutput(message.content));
+  }
+  if (message.role === "assistant" && message.toolCalls?.length) {
+    let lines = 2;
+    if (message.content) lines += countLines(message.content);
+    lines += 4 + (message.toolCalls?.length ?? 0);
+    return lines;
+  }
+  if (message.role === "assistant") {
+    return 2 + countLines(message.content);
+  }
+  return 2;
 }
 
 function HRule({ width }: { width: number }): React.ReactElement {
@@ -186,11 +213,31 @@ function ProcessingIndicator(): React.ReactElement {
   );
 }
 
+function ScrollIndicator({
+  direction,
+  count,
+}: {
+  direction: "above" | "below";
+  count: number;
+}): React.ReactElement {
+  const arrow = direction === "above" ? "▲" : "▼";
+  return (
+    <Box justifyContent="center" paddingX={2}>
+      <Text dimColor>
+        {`${arrow} ${count} more ${count === 1 ? "message" : "messages"} ${direction}`}
+      </Text>
+    </Box>
+  );
+}
+
 interface AppProps {
   provider: ChatProvider;
   conversation: ConversationHistory;
   skills: Skill[];
 }
+
+// border(2) + header(3) + hrules(2) + input(3) + status(1) = 11
+const CHROME_HEIGHT = 11;
 
 function App({
   provider,
@@ -200,6 +247,7 @@ function App({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [scrollOffset, setScrollOffset] = useState(0);
   const { exit } = useApp();
   const { stdout } = useStdout();
 
@@ -220,6 +268,39 @@ function App({
       stdout.off("resize", onResize);
     };
   }, [stdout]);
+
+  useEffect(() => {
+    setScrollOffset((prev) => (prev === 0 ? 0 : prev + 1));
+  }, [messages.length]);
+
+  const messagesHeight = Math.max(termSize.rows - CHROME_HEIGHT, 4);
+
+  const { visibleMessages, hiddenAbove, hiddenBelow } = useMemo(() => {
+    if (messages.length === 0) {
+      return { visibleMessages: [] as Message[], hiddenAbove: 0, hiddenBelow: 0 };
+    }
+
+    const endIndex = messages.length - scrollOffset;
+    let usedLines = isProcessing ? 2 : 0;
+    let startIndex = endIndex;
+
+    for (let i = endIndex - 1; i >= 0; i--) {
+      const lines = estimateMessageLines(messages[i], termSize.columns);
+      if (usedLines + lines > messagesHeight && startIndex < endIndex) break;
+      usedLines += lines;
+      startIndex = i;
+    }
+
+    return {
+      visibleMessages: messages.slice(startIndex, endIndex),
+      hiddenAbove: startIndex,
+      hiddenBelow: scrollOffset,
+    };
+  }, [messages, scrollOffset, messagesHeight, termSize.columns, isProcessing]);
+
+  const maxScrollOffset = useMemo(() => {
+    return Math.max(0, messages.length - 1);
+  }, [messages.length]);
 
   const handleSubmit = useCallback(
     async (text: string) => {
@@ -254,6 +335,12 @@ function App({
     if (key.ctrl && ch === "c") {
       exit();
     }
+    if (key.upArrow) {
+      setScrollOffset((prev) => Math.min(prev + 1, maxScrollOffset));
+    }
+    if (key.downArrow) {
+      setScrollOffset((prev) => Math.max(prev - 1, 0));
+    }
   });
 
   const userCount = messages.filter((m) => m.role === "user").length;
@@ -271,19 +358,26 @@ function App({
 
       <Box
         flexDirection="column"
-        flexGrow={1}
+        height={messagesHeight}
         overflowY="hidden"
-        justifyContent={messages.length === 0 && !isProcessing ? "center" : "flex-end"}
-        paddingBottom={1}
+        justifyContent="flex-end"
       >
         {messages.length === 0 && !isProcessing ? (
           <WelcomeHint />
         ) : (
-          messages.map((msg, i) => (
-            <MessageView key={i} message={msg} />
-          ))
+          <>
+            {hiddenAbove > 0 && (
+              <ScrollIndicator direction="above" count={hiddenAbove} />
+            )}
+            {visibleMessages.map((msg, i) => (
+              <MessageView key={hiddenAbove + i} message={msg} />
+            ))}
+            {isProcessing && <ProcessingIndicator />}
+            {hiddenBelow > 0 && (
+              <ScrollIndicator direction="below" count={hiddenBelow} />
+            )}
+          </>
         )}
-        {isProcessing && <ProcessingIndicator />}
       </Box>
 
       <HRule width={termSize.columns} />
@@ -312,7 +406,7 @@ function App({
       </Box>
 
       <Box paddingX={2} justifyContent="space-between">
-        <Text dimColor>{"Ctrl+C exit"}</Text>
+        <Text dimColor>{"Ctrl+C exit  ↑↓ scroll"}</Text>
         <Text dimColor>
           {userCount} {userCount === 1 ? "message" : "messages"}
         </Text>
