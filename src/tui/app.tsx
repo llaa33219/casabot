@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { render, Box, Text, useInput, useApp, useStdout } from "ink";
+import React, { useState, useCallback, useMemo } from "react";
+import { render, Box, Text, Static, useInput, useApp, useStdout } from "ink";
 import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
 import Gradient from "ink-gradient";
@@ -9,15 +9,11 @@ import type { ChatProvider } from "../providers/base.js";
 import type { ConversationHistory, Message, Skill } from "../config/types.js";
 import { runAgent } from "../agent/base.js";
 
-marked.use(
-  markedTerminal({
-    showSectionPrefix: false,
-    tab: 2,
-  }),
-);
 marked.use({ gfm: true });
 
 function renderMarkdown(content: string): string {
+  const width = Math.max((process.stdout.columns ?? 80) - 8, 40);
+  marked.use(markedTerminal({ showSectionPrefix: false, tab: 2, width }));
   return (marked.parse(content, { async: false }) as string).trimEnd();
 }
 
@@ -30,48 +26,9 @@ function truncateOutput(content: string, maxLines = 8): string {
   );
 }
 
-function useMouseWheel(
-  onScrollUp: () => void,
-  onScrollDown: () => void,
-): void {
+function HRule(): React.ReactElement {
   const { stdout } = useStdout();
-  const scrollUpRef = useRef(onScrollUp);
-  const scrollDownRef = useRef(onScrollDown);
-
-  useEffect(() => {
-    scrollUpRef.current = onScrollUp;
-    scrollDownRef.current = onScrollDown;
-  });
-
-  useEffect(() => {
-    if (!process.stdin.isTTY) return;
-
-    const ENABLE_MOUSE = "\x1b[?1000h\x1b[?1006h";
-    const DISABLE_MOUSE = "\x1b[?1000l\x1b[?1006l";
-    stdout.write(ENABLE_MOUSE);
-
-    const sgrRegex = /\x1b\[<(\d+);\d+;\d+M/g;
-
-    const handleData = (data: Buffer): void => {
-      const str = data.toString("utf8");
-      let match;
-      while ((match = sgrRegex.exec(str)) !== null) {
-        const button = parseInt(match[1], 10);
-        if (button === 64) scrollUpRef.current();
-        if (button === 65) scrollDownRef.current();
-      }
-      sgrRegex.lastIndex = 0;
-    };
-
-    process.stdin.on("data", handleData);
-    return () => {
-      process.stdin.off("data", handleData);
-      stdout.write(DISABLE_MOUSE);
-    };
-  }, [stdout]);
-}
-
-function HRule({ width }: { width: number }): React.ReactElement {
+  const width = stdout.columns ?? 80;
   return (
     <Box paddingX={1}>
       <Text dimColor>{"─".repeat(Math.max(width - 4, 10))}</Text>
@@ -79,15 +36,20 @@ function HRule({ width }: { width: number }): React.ReactElement {
   );
 }
 
-function Header(): React.ReactElement {
+function HeaderBlock(): React.ReactElement {
   return (
-    <Box flexDirection="column" paddingX={2} paddingTop={1}>
-      <Gradient name="vice">
-        <Text bold>{"✦  CasAbot"}</Text>
-      </Gradient>
-      <Text dimColor>
-        {"Cassiopeia A — Freely creates everything, like a supernova explosion."}
-      </Text>
+    <Box flexDirection="column" paddingTop={1}>
+      <Box paddingX={2}>
+        <Gradient name="vice">
+          <Text bold>{"✦  CasAbot"}</Text>
+        </Gradient>
+      </Box>
+      <Box paddingX={2}>
+        <Text dimColor>
+          {"Cassiopeia A — Freely creates everything, like a supernova explosion."}
+        </Text>
+      </Box>
+      <HRule />
     </Box>
   );
 }
@@ -99,7 +61,7 @@ function UserMessageView({ content }: { content: string }): React.ReactElement {
         {"▶ You"}
       </Text>
       <Box marginLeft={2}>
-        <Text>{content}</Text>
+        <Text wrap="wrap">{content}</Text>
       </Box>
     </Box>
   );
@@ -116,7 +78,7 @@ function AssistantMessageView({
         {"✦ CasAbot"}
       </Text>
       <Box marginLeft={2}>
-        <Text>{renderMarkdown(content)}</Text>
+        <Text wrap="wrap">{renderMarkdown(content)}</Text>
       </Box>
     </Box>
   );
@@ -134,7 +96,7 @@ function ToolCallsView({
       </Text>
       {message.content ? (
         <Box marginLeft={2}>
-          <Text>{renderMarkdown(message.content)}</Text>
+          <Text wrap="wrap">{renderMarkdown(message.content)}</Text>
         </Box>
       ) : null}
       <Box
@@ -160,7 +122,7 @@ function ToolCallsView({
             <Box key={i}>
               <Text dimColor>{tc.name}</Text>
               <Text>{" → "}</Text>
-              <Text color="white">{display}</Text>
+              <Text color="white" wrap="wrap">{display}</Text>
             </Box>
           );
         })}
@@ -186,7 +148,7 @@ function ToolResultView({
       <Text dimColor bold>
         {"📋 Result"}
       </Text>
-      <Text dimColor>{truncateOutput(content)}</Text>
+      <Text dimColor wrap="wrap">{truncateOutput(content)}</Text>
     </Box>
   );
 }
@@ -213,7 +175,7 @@ function MessageView({
 
 function WelcomeHint(): React.ReactElement {
   return (
-    <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
+    <Box flexDirection="column" paddingX={2} marginTop={1} marginBottom={1}>
       <Text dimColor>{"Type a message below to get started."}</Text>
       <Text dimColor>{"CasAbot will orchestrate agents to help you."}</Text>
     </Box>
@@ -231,14 +193,15 @@ function ProcessingIndicator(): React.ReactElement {
   );
 }
 
+type DisplayItem =
+  | { key: string; type: "header" }
+  | { key: string; type: "message"; message: Message };
+
 interface AppProps {
   provider: ChatProvider;
   conversation: ConversationHistory;
   skills: Skill[];
 }
-
-// border(2) + header(3) + hrules(2) + input(3) + status(1) = 11
-const CHROME_HEIGHT = 11;
 
 function App({
   provider,
@@ -248,42 +211,7 @@ function App({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [scrollOffset, setScrollOffset] = useState(0);
   const { exit } = useApp();
-  const { stdout } = useStdout();
-
-  const [termSize, setTermSize] = useState({
-    columns: stdout.columns ?? 80,
-    rows: stdout.rows ?? 24,
-  });
-
-  useEffect(() => {
-    const onResize = () => {
-      setTermSize({
-        columns: stdout.columns ?? 80,
-        rows: stdout.rows ?? 24,
-      });
-    };
-    stdout.on("resize", onResize);
-    return () => {
-      stdout.off("resize", onResize);
-    };
-  }, [stdout]);
-
-  useEffect(() => {
-    setScrollOffset((prev) => (prev === 0 ? 0 : prev + 1));
-  }, [messages.length]);
-
-  const messagesHeight = Math.max(termSize.rows - CHROME_HEIGHT, 4);
-
-  const visibleMessages = useMemo(
-    () => messages.slice(0, messages.length - scrollOffset),
-    [messages, scrollOffset],
-  );
-
-  const maxScrollOffset = useMemo(() => {
-    return Math.max(0, messages.length - 1);
-  }, [messages.length]);
 
   const handleSubmit = useCallback(
     async (text: string) => {
@@ -314,61 +242,46 @@ function App({
     [isProcessing, provider, conversation, skills],
   );
 
-  const scrollUp = useCallback(() => {
-    setScrollOffset((prev) => Math.min(prev + 1, maxScrollOffset));
-  }, [maxScrollOffset]);
-
-  const scrollDown = useCallback(() => {
-    setScrollOffset((prev) => Math.max(prev - 1, 0));
-  }, []);
-
-  useMouseWheel(scrollUp, scrollDown);
-
   useInput((ch, key) => {
     if (key.ctrl && ch === "c") {
       exit();
-    }
-    if (key.upArrow) {
-      scrollUp();
-    }
-    if (key.downArrow) {
-      scrollDown();
     }
   });
 
   const userCount = messages.filter((m) => m.role === "user").length;
 
+  const items = useMemo((): DisplayItem[] => [
+    { key: "header", type: "header" },
+    ...messages.map((msg, i): DisplayItem => ({
+      key: `msg-${i}`,
+      type: "message",
+      message: msg,
+    })),
+  ], [messages]);
+
   return (
-    <Box
-      flexDirection="column"
-      width={termSize.columns}
-      height={termSize.rows}
-      borderStyle="round"
-      borderColor="gray"
-    >
-      <Header />
-      <HRule width={termSize.columns} />
+    <Box flexDirection="column">
+      <Static items={items}>
+        {(item) => {
+          if (item.type === "header") {
+            return (
+              <Box key={item.key} flexDirection="column">
+                <HeaderBlock />
+              </Box>
+            );
+          }
+          return (
+            <Box key={item.key} flexDirection="column">
+              <MessageView message={item.message} />
+            </Box>
+          );
+        }}
+      </Static>
 
-      <Box
-        flexDirection="column"
-        height={messagesHeight}
-        overflowY="hidden"
-        justifyContent="flex-end"
-      >
-        {messages.length === 0 && !isProcessing ? (
-          <WelcomeHint />
-        ) : (
-          <>
-            <Box minHeight={messagesHeight} />
-            {visibleMessages.map((msg, i) => (
-              <MessageView key={i} message={msg} />
-            ))}
-            {isProcessing && <ProcessingIndicator />}
-          </>
-        )}
-      </Box>
+      {messages.length === 0 && !isProcessing && <WelcomeHint />}
+      {isProcessing && <ProcessingIndicator />}
 
-      <HRule width={termSize.columns} />
+      <HRule />
 
       <Box paddingX={1}>
         <Box
@@ -394,7 +307,7 @@ function App({
       </Box>
 
       <Box paddingX={2} justifyContent="space-between">
-        <Text dimColor>{"Ctrl+C exit  ↑↓/wheel scroll"}</Text>
+        <Text dimColor>{"Ctrl+C exit"}</Text>
         <Text dimColor>
           {userCount} {userCount === 1 ? "message" : "messages"}
         </Text>
