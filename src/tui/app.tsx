@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { render, Box, Text, Static, useInput, useApp, useStdout } from "ink";
 import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
@@ -8,6 +8,12 @@ import { markedTerminal } from "marked-terminal";
 import type { ChatProvider } from "../providers/base.js";
 import type { ConversationHistory, Message, Skill } from "../config/types.js";
 import { runAgent } from "../agent/base.js";
+import {
+  createConversation,
+  listConversations,
+  saveConversation,
+  appendMessage,
+} from "../history/store.js";
 
 function renderMarkdown(content: string): string {
   const width = Math.max((process.stdout.columns ?? 80) - 8, 40);
@@ -23,6 +29,19 @@ function truncateOutput(content: string, maxLines = 8): string {
     lines.slice(0, maxLines).join("\n") +
     `\n  … ${lines.length - maxLines} more lines`
   );
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function getPreview(conv: ConversationHistory, maxLen = 50): string {
+  const firstUser = conv.messages.find((m) => m.role === "user");
+  if (!firstUser) return "(empty session)";
+  const text = firstUser.content.replace(/\n/g, " ").trim();
+  return text.length > maxLen ? text.slice(0, maxLen - 1) + "…" : text;
 }
 
 function HRule({ columns }: { columns: number }): React.ReactElement {
@@ -208,9 +227,144 @@ function ProcessingIndicator({ columns }: { columns: number }): React.ReactEleme
   );
 }
 
+interface HistoryBrowserProps {
+  columns: number;
+  currentId: string;
+  onSelect: (conversation: ConversationHistory) => void;
+  onBack: () => void;
+}
+
+function HistoryBrowser({
+  columns,
+  currentId,
+  onSelect,
+  onBack,
+}: HistoryBrowserProps): React.ReactElement {
+  const [conversations, setConversations] = useState<ConversationHistory[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    listConversations()
+      .then((convs) => {
+        setConversations(convs);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
+  useInput((ch, key) => {
+    if (key.escape) {
+      onBack();
+      return;
+    }
+    if (key.return && conversations.length > 0) {
+      onSelect(conversations[selectedIndex]);
+      return;
+    }
+    if (key.upArrow) {
+      setSelectedIndex((prev) => Math.max(0, prev - 1));
+    }
+    if (key.downArrow && conversations.length > 0) {
+      setSelectedIndex((prev) => Math.min(conversations.length - 1, prev + 1));
+    }
+  });
+
+  const boxWidth = Math.max(columns - 4, 10);
+
+  return (
+    <Box flexDirection="column" paddingTop={1} width={columns}>
+      <Box paddingX={2}>
+        <Gradient name="vice">
+          <Text bold>{"📋 Session History"}</Text>
+        </Gradient>
+      </Box>
+
+      <HRule columns={columns} />
+
+      {isLoading ? (
+        <Box paddingX={2} marginTop={1} gap={1}>
+          <Text color="yellow">
+            <Spinner type="dots" />
+          </Text>
+          <Text color="yellow">{"Loading sessions…"}</Text>
+        </Box>
+      ) : conversations.length === 0 ? (
+        <Box paddingX={2} marginTop={1}>
+          <Text dimColor>{"No previous sessions found."}</Text>
+        </Box>
+      ) : (
+        <Box
+          flexDirection="column"
+          marginX={2}
+          marginTop={1}
+          borderStyle="round"
+          borderColor="gray"
+          paddingX={1}
+          paddingY={1}
+          width={boxWidth}
+          overflow="hidden"
+        >
+          {conversations.map((conv, i) => {
+            const isSelected = i === selectedIndex;
+            const isCurrent = conv.id === currentId;
+            const dateStr = formatDate(conv.startedAt);
+            const preview = getPreview(conv, Math.max(boxWidth - dateStr.length - 12, 20));
+            const msgCount = conv.messages.filter((m) => m.role === "user").length;
+
+            return (
+              <Box key={conv.id} width={boxWidth - 4}>
+                <Text
+                  color={isSelected ? "cyan" : undefined}
+                  bold={isSelected}
+                  dimColor={!isSelected}
+                >
+                  {isSelected ? " ▶ " : "   "}
+                </Text>
+                <Text
+                  color={isSelected ? "cyan" : undefined}
+                  bold={isSelected}
+                  dimColor={!isSelected}
+                >
+                  {dateStr}
+                </Text>
+                <Text dimColor={!isSelected}>{" │ "}</Text>
+                <Text
+                  color={isSelected ? "white" : undefined}
+                  dimColor={!isSelected}
+                  wrap="truncate"
+                >
+                  {preview}
+                </Text>
+                {isCurrent ? (
+                  <Text color="green" bold>{" (current)"}</Text>
+                ) : null}
+                <Text dimColor>
+                  {` [${msgCount}]`}
+                </Text>
+              </Box>
+            );
+          })}
+        </Box>
+      )}
+
+      <HRule columns={columns} />
+
+      <Box paddingX={2} width={columns} justifyContent="space-between">
+        <Text dimColor>{"↑↓ navigate  Enter select  ESC back"}</Text>
+        <Text dimColor>{`${conversations.length} sessions`}</Text>
+      </Box>
+    </Box>
+  );
+}
+
 type DisplayItem =
   | { key: string; type: "header" }
   | { key: string; type: "message"; message: Message };
+
+type AppMode = "chat" | "history";
 
 interface AppProps {
   provider: ChatProvider;
@@ -220,20 +374,50 @@ interface AppProps {
 
 function App({
   provider,
-  conversation,
+  conversation: initialConversation,
   skills,
 }: AppProps): React.ReactElement {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [mode, setMode] = useState<AppMode>("chat");
+  const conversationRef = useRef<ConversationHistory>(initialConversation);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const { exit } = useApp();
   const { stdout } = useStdout();
   const columns = stdout.columns ?? 80;
+
+  const handleCancel = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  }, []);
 
   const handleSubmit = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || isProcessing) return;
+
+      if (trimmed === "/new") {
+        setInput("");
+        if (conversationRef.current.messages.length > 0) {
+          await saveConversation(conversationRef.current);
+        }
+        process.stdout.write("\x1Bc");
+        const newConv = createConversation();
+        conversationRef.current = newConv;
+        setMessages([]);
+        return;
+      }
+
+      if (trimmed === "/history") {
+        setInput("");
+        if (conversationRef.current.messages.length > 0) {
+          await saveConversation(conversationRef.current);
+        }
+        setMode("history");
+        return;
+      }
 
       setInput("");
       setIsProcessing(true);
@@ -241,40 +425,98 @@ function App({
       const userMsg: Message = { role: "user", content: trimmed };
       setMessages((prev) => [...prev, userMsg]);
 
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       try {
-        const generator = runAgent(provider, trimmed, conversation, skills);
+        const generator = runAgent(
+          provider,
+          trimmed,
+          conversationRef.current,
+          skills,
+          controller.signal,
+        );
         for await (const msg of generator) {
+          if (controller.signal.aborted) break;
           setMessages((prev) => [...prev, msg]);
         }
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: `❌ Error: ${errorMsg}` },
-        ]);
+        if (!controller.signal.aborted) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: `❌ Error: ${errorMsg}` },
+          ]);
+        }
       }
 
+      if (controller.signal.aborted) {
+        const cancelMsg: Message = {
+          role: "assistant",
+          content: "⏹ Cancelled.",
+        };
+        setMessages((prev) => [...prev, cancelMsg]);
+        await appendMessage(conversationRef.current, cancelMsg);
+      }
+
+      abortControllerRef.current = null;
       setIsProcessing(false);
     },
-    [isProcessing, provider, conversation, skills],
+    [isProcessing, provider, skills],
   );
 
+  const handleHistorySelect = useCallback(async (conv: ConversationHistory) => {
+    if (conversationRef.current.messages.length > 0) {
+      await saveConversation(conversationRef.current);
+    }
+    process.stdout.write("\x1Bc");
+    conversationRef.current = conv;
+    setMessages([...conv.messages]);
+    setMode("chat");
+  }, []);
+
   useInput((ch, key) => {
-    if (key.ctrl && ch === "c") {
-      exit();
+    if (mode !== "chat") return;
+
+    if (isProcessing) {
+      if (key.escape || (key.ctrl && ch === "c")) {
+        handleCancel();
+      }
+    } else {
+      if (key.ctrl && ch === "c") {
+        exit();
+      }
     }
   });
 
   const userCount = messages.filter((m) => m.role === "user").length;
 
-  const items = useMemo((): DisplayItem[] => [
-    { key: "header", type: "header" },
-    ...messages.map((msg, i): DisplayItem => ({
-      key: `msg-${i}`,
-      type: "message",
-      message: msg,
-    })),
-  ], [messages]);
+  const convId = conversationRef.current.id;
+
+  const items = useMemo(
+    (): DisplayItem[] => [
+      { key: `header-${convId}`, type: "header" },
+      ...messages.map(
+        (msg, i): DisplayItem => ({
+          key: `${convId}-msg-${i}`,
+          type: "message",
+          message: msg,
+        }),
+      ),
+    ],
+    [messages, convId],
+  );
+
+  if (mode === "history") {
+    return (
+      <HistoryBrowser
+        columns={columns}
+        currentId={conversationRef.current.id}
+        onSelect={handleHistorySelect}
+        onBack={() => setMode("chat")}
+      />
+    );
+  }
 
   return (
     <Box flexDirection="column" width={columns}>
@@ -325,7 +567,11 @@ function App({
       </Box>
 
       <Box paddingX={2} width={columns} justifyContent="space-between">
-        <Text dimColor>{"Ctrl+C exit"}</Text>
+        <Text dimColor>
+          {isProcessing
+            ? "ESC / Ctrl+C cancel"
+            : "/new  /history  Ctrl+C exit"}
+        </Text>
         <Text dimColor>
           {userCount} {userCount === 1 ? "message" : "messages"}
         </Text>

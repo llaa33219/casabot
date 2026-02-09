@@ -7,6 +7,20 @@ import { CASABOT_HOME } from "../config/manager.js";
 
 const MAX_ITERATIONS = 20;
 
+function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new Error("AbortError"));
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      signal.addEventListener(
+        "abort",
+        () => reject(new Error("AbortError")),
+        { once: true },
+      );
+    }),
+  ]);
+}
+
 export function buildSystemPrompt(skills: Skill[]): string {
   const skillList = formatSkillsForPrompt(skills);
 
@@ -44,6 +58,7 @@ export async function* runAgent(
   userMessage: string,
   conversation: ConversationHistory,
   skills: Skill[],
+  signal: AbortSignal,
 ): AsyncGenerator<Message> {
   const systemPrompt = buildSystemPrompt(skills);
 
@@ -53,11 +68,21 @@ export async function* runAgent(
   const tools = [TERMINAL_TOOL];
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
+    if (signal.aborted) return;
+
     const messagesWithSystem: Message[] = [
       { role: "system", content: systemPrompt },
       ...conversation.messages,
     ];
-    const assistantMsg = await provider.chat(messagesWithSystem, tools);
+
+    let assistantMsg: Message;
+    try {
+      assistantMsg = await raceAbort(provider.chat(messagesWithSystem, tools), signal);
+    } catch (err: unknown) {
+      if (signal.aborted) return;
+      throw err;
+    }
+
     await appendMessage(conversation, assistantMsg);
     yield assistantMsg;
 
@@ -66,6 +91,8 @@ export async function* runAgent(
     }
 
     for (const toolCall of assistantMsg.toolCalls) {
+      if (signal.aborted) return;
+
       let result: string;
 
       if (toolCall.name === "run_command") {
