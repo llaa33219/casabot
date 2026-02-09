@@ -359,6 +359,7 @@ function App({
           <WelcomeHint />
         ) : (
           <>
+            <Box minHeight={messagesHeight} />
             {visibleMessages.map((msg, i) => (
               <MessageView key={i} message={msg} />
             ))}
