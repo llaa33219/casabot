@@ -1,6 +1,6 @@
 {
   "name": "casabot",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "CasAbot — Skill-driven multi-agent orchestrator system",
   "type": "module",
   "main": "dist/index.js",
@@ -32,6 +32,9 @@
     "commander": "^13.1.0",
     "gray-matter": "^4.0.3",
     "ink": "^6.6.0",
+    "ink-gradient": "^4.0.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
     "marked": "^15.0.12",
     "marked-terminal": "^7.3.0",
     "openai": "^5.1.0",

@@ -1,63 +1,189 @@
-import React, { useState, useCallback } from "react";
-import { render, Box, Text, useInput, useApp } from "ink";
+import React, { useState, useCallback, useEffect } from "react";
+import { render, Box, Text, useInput, useApp, useStdout } from "ink";
+import TextInput from "ink-text-input";
+import Spinner from "ink-spinner";
+import Gradient from "ink-gradient";
+import { marked } from "marked";
+import markedTerminal from "marked-terminal";
 import type { ChatProvider } from "../providers/base.js";
 import type { ConversationHistory, Message, Skill } from "../config/types.js";
 import { runAgent } from "../agent/base.js";
 
-function truncateOutput(content: string, maxLines = 5): string {
-  const lines = content.split("\n");
-  if (lines.length <= maxLines) return content;
-  return lines.slice(0, maxLines).join("\n") + `\n  ... (${lines.length - maxLines} more lines)`;
+marked.use(markedTerminal());
+
+function renderMarkdown(content: string): string {
+  const result = marked.parse(content);
+  if (typeof result === "string") return result.trimEnd();
+  return content;
 }
 
-function MessageView({ message }: { message: Message }): React.ReactElement {
-  if (message.role === "user") {
-    return (
-      <Box>
-        <Text color="green" bold>{"User: "}</Text>
-        <Text>{message.content}</Text>
-      </Box>
-    );
-  }
+function truncateOutput(content: string, maxLines = 8): string {
+  const lines = content.split("\n");
+  if (lines.length <= maxLines) return content;
+  return (
+    lines.slice(0, maxLines).join("\n") +
+    `\n  … ${lines.length - maxLines} more lines`
+  );
+}
 
-  if (message.role === "tool") {
-    return (
-      <Box flexDirection="column">
-        <Text dimColor bold>{"[Tool Result]"}</Text>
-        <Text dimColor>{truncateOutput(message.content)}</Text>
-      </Box>
-    );
-  }
+function HRule({ width }: { width: number }): React.ReactElement {
+  return (
+    <Box paddingX={1}>
+      <Text dimColor>{"─".repeat(Math.max(width - 4, 10))}</Text>
+    </Box>
+  );
+}
 
-  if (message.role === "assistant") {
-    if (message.toolCalls?.length) {
-      return (
-        <Box flexDirection="column">
-          <Text color="cyan" bold>{"CasAbot: "}</Text>
-          {message.content ? <Text color="cyan">{message.content}</Text> : null}
-          {message.toolCalls.map((tc, i) => {
-            const args = (() => {
-              try { return JSON.parse(tc.arguments) as { command?: string }; } catch { return {}; }
-            })();
-            return (
-              <Text key={i} dimColor>
-                {"  ⚡ "}{tc.name}: {args.command ?? tc.arguments}
-              </Text>
-            );
-          })}
+function Header(): React.ReactElement {
+  return (
+    <Box flexDirection="column" paddingX={2} paddingTop={1}>
+      <Gradient name="vice">
+        <Text bold>{"✦  CasAbot"}</Text>
+      </Gradient>
+      <Text dimColor>
+        {"Cassiopeia A — Freely creates everything, like a supernova explosion."}
+      </Text>
+    </Box>
+  );
+}
+
+function UserMessageView({ content }: { content: string }): React.ReactElement {
+  return (
+    <Box flexDirection="column" paddingX={2} marginTop={1}>
+      <Text color="green" bold>
+        {"▶ You"}
+      </Text>
+      <Box marginLeft={2}>
+        <Text>{content}</Text>
+      </Box>
+    </Box>
+  );
+}
+
+function AssistantMessageView({
+  content,
+}: {
+  content: string;
+}): React.ReactElement {
+  return (
+    <Box flexDirection="column" paddingX={2} marginTop={1}>
+      <Text color="cyan" bold>
+        {"✦ CasAbot"}
+      </Text>
+      <Box marginLeft={2}>
+        <Text>{renderMarkdown(content)}</Text>
+      </Box>
+    </Box>
+  );
+}
+
+function ToolCallsView({
+  message,
+}: {
+  message: Message;
+}): React.ReactElement {
+  return (
+    <Box flexDirection="column" paddingX={2} marginTop={1}>
+      <Text color="cyan" bold>
+        {"✦ CasAbot"}
+      </Text>
+      {message.content ? (
+        <Box marginLeft={2}>
+          <Text>{renderMarkdown(message.content)}</Text>
         </Box>
-      );
-    }
-
-    return (
-      <Box>
-        <Text color="cyan" bold>{"CasAbot: "}</Text>
-        <Text color="cyan">{message.content}</Text>
+      ) : null}
+      <Box
+        flexDirection="column"
+        marginLeft={2}
+        marginTop={1}
+        borderStyle="round"
+        borderColor="yellow"
+        paddingX={1}
+      >
+        <Text color="yellow" bold>
+          {"⚡ Tool Calls"}
+        </Text>
+        {message.toolCalls?.map((tc, i) => {
+          let display = tc.arguments;
+          try {
+            const args = JSON.parse(tc.arguments) as Record<string, unknown>;
+            if (typeof args.command === "string") display = args.command;
+          } catch {
+            /* keep raw */
+          }
+          return (
+            <Box key={i}>
+              <Text dimColor>{tc.name}</Text>
+              <Text>{" → "}</Text>
+              <Text color="white">{display}</Text>
+            </Box>
+          );
+        })}
       </Box>
-    );
-  }
+    </Box>
+  );
+}
 
+function ToolResultView({
+  content,
+}: {
+  content: string;
+}): React.ReactElement {
+  return (
+    <Box
+      flexDirection="column"
+      marginLeft={4}
+      marginRight={2}
+      borderStyle="round"
+      borderColor="gray"
+      paddingX={1}
+    >
+      <Text dimColor bold>
+        {"📋 Result"}
+      </Text>
+      <Text dimColor>{truncateOutput(content)}</Text>
+    </Box>
+  );
+}
+
+function MessageView({
+  message,
+}: {
+  message: Message;
+}): React.ReactElement {
+  if (message.role === "user") {
+    return <UserMessageView content={message.content} />;
+  }
+  if (message.role === "tool") {
+    return <ToolResultView content={message.content} />;
+  }
+  if (message.role === "assistant" && message.toolCalls?.length) {
+    return <ToolCallsView message={message} />;
+  }
+  if (message.role === "assistant") {
+    return <AssistantMessageView content={message.content} />;
+  }
   return <Text>{message.content}</Text>;
+}
+
+function WelcomeHint(): React.ReactElement {
+  return (
+    <Box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
+      <Text dimColor>{"Type a message below to get started."}</Text>
+      <Text dimColor>{"CasAbot will orchestrate agents to help you."}</Text>
+    </Box>
+  );
+}
+
+function ProcessingIndicator(): React.ReactElement {
+  return (
+    <Box paddingX={2} marginTop={1} gap={1}>
+      <Text color="yellow">
+        <Spinner type="dots" />
+      </Text>
+      <Text color="yellow">{"Thinking…"}</Text>
+    </Box>
+  );
 }
 
 interface AppProps {
@@ -66,82 +192,130 @@ interface AppProps {
   skills: Skill[];
 }
 
-function App({ provider, conversation, skills }: AppProps): React.ReactElement {
+function App({
+  provider,
+  conversation,
+  skills,
+}: AppProps): React.ReactElement {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const { exit } = useApp();
+  const { stdout } = useStdout();
 
-  const handleSubmit = useCallback(async () => {
-    const text = input.trim();
-    if (!text || isProcessing) return;
+  const [termSize, setTermSize] = useState({
+    columns: stdout.columns ?? 80,
+    rows: stdout.rows ?? 24,
+  });
 
-    setInput("");
-    setIsProcessing(true);
+  useEffect(() => {
+    const onResize = () => {
+      setTermSize({
+        columns: stdout.columns ?? 80,
+        rows: stdout.rows ?? 24,
+      });
+    };
+    stdout.on("resize", onResize);
+    return () => {
+      stdout.off("resize", onResize);
+    };
+  }, [stdout]);
 
-    const userMsg: Message = { role: "user", content: text };
-    setMessages((prev) => [...prev, userMsg]);
+  const handleSubmit = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || isProcessing) return;
 
-    try {
-      const generator = runAgent(provider, text, conversation, skills);
-      for await (const msg of generator) {
-        setMessages((prev) => [...prev, msg]);
+      setInput("");
+      setIsProcessing(true);
+
+      const userMsg: Message = { role: "user", content: trimmed };
+      setMessages((prev) => [...prev, userMsg]);
+
+      try {
+        const generator = runAgent(provider, trimmed, conversation, skills);
+        for await (const msg of generator) {
+          setMessages((prev) => [...prev, msg]);
+        }
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: `❌ Error: ${errorMsg}` },
+        ]);
       }
-    } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `❌ Error occurred: ${errorMsg}` },
-      ]);
-    }
 
-    setIsProcessing(false);
-  }, [input, isProcessing, provider, conversation, skills]);
+      setIsProcessing(false);
+    },
+    [isProcessing, provider, conversation, skills],
+  );
 
   useInput((ch, key) => {
     if (key.ctrl && ch === "c") {
       exit();
-      return;
-    }
-
-    if (isProcessing) return;
-
-    if (key.return) {
-      handleSubmit().catch(() => {});
-      return;
-    }
-
-    if (key.backspace || key.delete) {
-      setInput((prev) => prev.slice(0, -1));
-      return;
-    }
-
-    if (ch && !key.ctrl && !key.meta) {
-      setInput((prev) => prev + ch);
     }
   });
 
+  const userCount = messages.filter((m) => m.role === "user").length;
+
   return (
-    <Box flexDirection="column">
-      <Box marginBottom={1}>
-        <Text bold color="cyan">
-          {"🌟 CasAbot > "}
-        </Text>
-        <Text dimColor>Cassiopeia A — Freely creates everything, like a supernova explosion.</Text>
+    <Box
+      flexDirection="column"
+      width={termSize.columns}
+      height={termSize.rows}
+      borderStyle="round"
+      borderColor="gray"
+    >
+      <Header />
+      <HRule width={termSize.columns} />
+
+      <Box
+        flexDirection="column"
+        flexGrow={1}
+        overflowY="hidden"
+        justifyContent={messages.length === 0 && !isProcessing ? "center" : "flex-end"}
+        paddingBottom={1}
+      >
+        {messages.length === 0 && !isProcessing ? (
+          <WelcomeHint />
+        ) : (
+          messages.map((msg, i) => (
+            <MessageView key={i} message={msg} />
+          ))
+        )}
+        {isProcessing && <ProcessingIndicator />}
       </Box>
 
-      {messages.map((msg, i) => (
-        <MessageView key={i} message={msg} />
-      ))}
+      <HRule width={termSize.columns} />
 
-      {isProcessing && (
-        <Text color="yellow">{"⏳ Processing..."}</Text>
-      )}
+      <Box paddingX={1}>
+        <Box
+          borderStyle="round"
+          borderColor={isProcessing ? "gray" : "cyan"}
+          paddingX={1}
+          width="100%"
+        >
+          <Text color="cyan" bold>
+            {"❯ "}
+          </Text>
+          <TextInput
+            value={input}
+            onChange={setInput}
+            onSubmit={(val: string) => {
+              handleSubmit(val).catch(() => {});
+            }}
+            placeholder="Type your message…"
+            focus={!isProcessing}
+            showCursor
+          />
+        </Box>
+      </Box>
 
-      <Box marginTop={1}>
-        <Text color="green" bold>{"❯ "}</Text>
-        <Text>{input}</Text>
-        {!isProcessing && <Text dimColor>{"█"}</Text>}
+      <Box paddingX={2} justifyContent="space-between">
+        <Text dimColor>{"Ctrl+C exit"}</Text>
+        <Text dimColor>
+          {userCount} {userCount === 1 ? "message" : "messages"}
+        </Text>
       </Box>
     </Box>
   );
