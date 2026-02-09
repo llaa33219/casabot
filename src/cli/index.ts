@@ -16,7 +16,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 async function displayLogo(): Promise<void> {
   try {
     const logoPath = join(__dirname, "..", "..", "Logo2.png");
-    const maxWidth = Math.min(process.stdout.columns || 80, 80);
+    const maxWidth = Math.min(process.stdout.columns || 80, 160);
     const art = await renderBrailleLogo(logoPath, maxWidth);
     console.log(art);
     console.log("");

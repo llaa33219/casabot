@@ -56,24 +56,6 @@ function HRule({ columns }: { columns: number }): React.ReactElement {
   );
 }
 
-function HeaderBlock({ columns }: { columns: number }): React.ReactElement {
-  return (
-    <Box flexDirection="column" paddingTop={1} width={columns}>
-      <Box paddingX={2}>
-        <Gradient colors={[BRAND_RED, BRAND_BLUE]}>
-          <Text bold>{"✦  CasAbot"}</Text>
-        </Gradient>
-      </Box>
-      <Box paddingX={2}>
-        <Text wrap="wrap" dimColor>
-          {"Cassiopeia A — Freely creates everything, like a supernova explosion."}
-        </Text>
-      </Box>
-      <HRule columns={columns} />
-    </Box>
-  );
-}
-
 function UserMessageView({ content, columns }: { content: string; columns: number }): React.ReactElement {
   return (
     <Box flexDirection="column" paddingX={2} marginTop={1} width={columns}>
@@ -364,9 +346,7 @@ function HistoryBrowser({
   );
 }
 
-type DisplayItem =
-  | { key: string; type: "header" }
-  | { key: string; type: "message"; message: Message };
+type DisplayItem = { key: string; message: Message };
 
 type AppMode = "chat" | "history";
 
@@ -498,16 +478,13 @@ function App({
   const convId = conversationRef.current.id;
 
   const items = useMemo(
-    (): DisplayItem[] => [
-      { key: `header-${convId}`, type: "header" },
-      ...messages.map(
+    (): DisplayItem[] =>
+      messages.map(
         (msg, i): DisplayItem => ({
           key: `${convId}-msg-${i}`,
-          type: "message",
           message: msg,
         }),
       ),
-    ],
     [messages, convId],
   );
 
@@ -525,20 +502,11 @@ function App({
   return (
     <Box flexDirection="column" width={columns}>
       <Static items={items}>
-        {(item) => {
-          if (item.type === "header") {
-            return (
-              <Box key={item.key} flexDirection="column" width={columns}>
-                <HeaderBlock columns={columns} />
-              </Box>
-            );
-          }
-          return (
-            <Box key={item.key} flexDirection="column" width={columns}>
-              <MessageView message={item.message} columns={columns} />
-            </Box>
-          );
-        }}
+        {(item) => (
+          <Box key={item.key} flexDirection="column" width={columns}>
+            <MessageView message={item.message} columns={columns} />
+          </Box>
+        )}
       </Static>
 
       {messages.length === 0 && !isProcessing && <WelcomeHint columns={columns} />}
