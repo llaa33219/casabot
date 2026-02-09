@@ -26,41 +26,39 @@ function truncateOutput(content: string, maxLines = 8): string {
   );
 }
 
-function HRule(): React.ReactElement {
-  const { stdout } = useStdout();
-  const width = stdout.columns ?? 80;
+function HRule({ columns }: { columns: number }): React.ReactElement {
   return (
-    <Box paddingX={1}>
-      <Text dimColor>{"─".repeat(Math.max(width - 4, 10))}</Text>
+    <Box paddingX={1} width={columns}>
+      <Text dimColor>{"─".repeat(Math.max(columns - 4, 1))}</Text>
     </Box>
   );
 }
 
-function HeaderBlock(): React.ReactElement {
+function HeaderBlock({ columns }: { columns: number }): React.ReactElement {
   return (
-    <Box flexDirection="column" paddingTop={1}>
+    <Box flexDirection="column" paddingTop={1} width={columns}>
       <Box paddingX={2}>
         <Gradient name="vice">
           <Text bold>{"✦  CasAbot"}</Text>
         </Gradient>
       </Box>
       <Box paddingX={2}>
-        <Text dimColor>
+        <Text wrap="wrap" dimColor>
           {"Cassiopeia A — Freely creates everything, like a supernova explosion."}
         </Text>
       </Box>
-      <HRule />
+      <HRule columns={columns} />
     </Box>
   );
 }
 
-function UserMessageView({ content }: { content: string }): React.ReactElement {
+function UserMessageView({ content, columns }: { content: string; columns: number }): React.ReactElement {
   return (
-    <Box flexDirection="column" paddingX={2} marginTop={1}>
+    <Box flexDirection="column" paddingX={2} marginTop={1} width={columns}>
       <Text color="green" bold>
         {"▶ You"}
       </Text>
-      <Box marginLeft={2}>
+      <Box marginLeft={2} width={Math.max(columns - 6, 10)}>
         <Text wrap="wrap">{content}</Text>
       </Box>
     </Box>
@@ -69,15 +67,17 @@ function UserMessageView({ content }: { content: string }): React.ReactElement {
 
 function AssistantMessageView({
   content,
+  columns,
 }: {
   content: string;
+  columns: number;
 }): React.ReactElement {
   return (
-    <Box flexDirection="column" paddingX={2} marginTop={1}>
+    <Box flexDirection="column" paddingX={2} marginTop={1} width={columns}>
       <Text color="cyan" bold>
         {"✦ CasAbot"}
       </Text>
-      <Box marginLeft={2}>
+      <Box marginLeft={2} width={Math.max(columns - 6, 10)}>
         <Text wrap="wrap">{renderMarkdown(content)}</Text>
       </Box>
     </Box>
@@ -86,16 +86,19 @@ function AssistantMessageView({
 
 function ToolCallsView({
   message,
+  columns,
 }: {
   message: Message;
+  columns: number;
 }): React.ReactElement {
+  const boxWidth = Math.max(columns - 6, 10);
   return (
-    <Box flexDirection="column" paddingX={2} marginTop={1}>
+    <Box flexDirection="column" paddingX={2} marginTop={1} width={columns}>
       <Text color="cyan" bold>
         {"✦ CasAbot"}
       </Text>
       {message.content ? (
-        <Box marginLeft={2}>
+        <Box marginLeft={2} width={boxWidth}>
           <Text wrap="wrap">{renderMarkdown(message.content)}</Text>
         </Box>
       ) : null}
@@ -106,6 +109,8 @@ function ToolCallsView({
         borderStyle="round"
         borderColor="yellow"
         paddingX={1}
+        width={boxWidth}
+        overflow="hidden"
       >
         <Text color="yellow" bold>
           {"⚡ Tool Calls"}
@@ -117,6 +122,10 @@ function ToolCallsView({
             if (typeof args.command === "string") display = args.command;
           } catch {
             /* keep raw */
+          }
+          const maxArgLen = Math.max(boxWidth - tc.name.length - 8, 20);
+          if (display.length > maxArgLen) {
+            display = display.slice(0, maxArgLen - 1) + "…";
           }
           return (
             <Box key={i}>
@@ -133,9 +142,12 @@ function ToolCallsView({
 
 function ToolResultView({
   content,
+  columns,
 }: {
   content: string;
+  columns: number;
 }): React.ReactElement {
+  const boxWidth = Math.max(columns - 6, 10);
   return (
     <Box
       flexDirection="column"
@@ -144,6 +156,8 @@ function ToolResultView({
       borderStyle="round"
       borderColor="gray"
       paddingX={1}
+      width={boxWidth}
+      overflow="hidden"
     >
       <Text dimColor bold>
         {"📋 Result"}
@@ -155,36 +169,38 @@ function ToolResultView({
 
 function MessageView({
   message,
+  columns,
 }: {
   message: Message;
+  columns: number;
 }): React.ReactElement {
   if (message.role === "user") {
-    return <UserMessageView content={message.content} />;
+    return <UserMessageView content={message.content} columns={columns} />;
   }
   if (message.role === "tool") {
-    return <ToolResultView content={message.content} />;
+    return <ToolResultView content={message.content} columns={columns} />;
   }
   if (message.role === "assistant" && message.toolCalls?.length) {
-    return <ToolCallsView message={message} />;
+    return <ToolCallsView message={message} columns={columns} />;
   }
   if (message.role === "assistant") {
-    return <AssistantMessageView content={message.content} />;
+    return <AssistantMessageView content={message.content} columns={columns} />;
   }
-  return <Text>{message.content}</Text>;
+  return <Text wrap="wrap">{message.content}</Text>;
 }
 
-function WelcomeHint(): React.ReactElement {
+function WelcomeHint({ columns }: { columns: number }): React.ReactElement {
   return (
-    <Box flexDirection="column" paddingX={2} marginTop={1} marginBottom={1}>
+    <Box flexDirection="column" paddingX={2} marginTop={1} marginBottom={1} width={columns}>
       <Text dimColor>{"Type a message below to get started."}</Text>
       <Text dimColor>{"CasAbot will orchestrate agents to help you."}</Text>
     </Box>
   );
 }
 
-function ProcessingIndicator(): React.ReactElement {
+function ProcessingIndicator({ columns }: { columns: number }): React.ReactElement {
   return (
-    <Box paddingX={2} marginTop={1} gap={1}>
+    <Box paddingX={2} marginTop={1} gap={1} width={columns}>
       <Text color="yellow">
         <Spinner type="dots" />
       </Text>
@@ -212,6 +228,8 @@ function App({
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const { exit } = useApp();
+  const { stdout } = useStdout();
+  const columns = stdout.columns ?? 80;
 
   const handleSubmit = useCallback(
     async (text: string) => {
@@ -260,35 +278,36 @@ function App({
   ], [messages]);
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" width={columns}>
       <Static items={items}>
         {(item) => {
           if (item.type === "header") {
             return (
-              <Box key={item.key} flexDirection="column">
-                <HeaderBlock />
+              <Box key={item.key} flexDirection="column" width={columns}>
+                <HeaderBlock columns={columns} />
               </Box>
             );
           }
           return (
-            <Box key={item.key} flexDirection="column">
-              <MessageView message={item.message} />
+            <Box key={item.key} flexDirection="column" width={columns}>
+              <MessageView message={item.message} columns={columns} />
             </Box>
           );
         }}
       </Static>
 
-      {messages.length === 0 && !isProcessing && <WelcomeHint />}
-      {isProcessing && <ProcessingIndicator />}
+      {messages.length === 0 && !isProcessing && <WelcomeHint columns={columns} />}
+      {isProcessing && <ProcessingIndicator columns={columns} />}
 
-      <HRule />
+      <HRule columns={columns} />
 
-      <Box paddingX={1}>
+      <Box paddingX={1} width={columns}>
         <Box
           borderStyle="round"
           borderColor={isProcessing ? "gray" : "cyan"}
           paddingX={1}
-          width="100%"
+          width={Math.max(columns - 2, 10)}
+          overflow="hidden"
         >
           <Text color="cyan" bold>
             {"❯ "}
@@ -306,7 +325,7 @@ function App({
         </Box>
       </Box>
 
-      <Box paddingX={2} justifyContent="space-between">
+      <Box paddingX={2} width={columns} justifyContent="space-between">
         <Text dimColor>{"Ctrl+C exit"}</Text>
         <Text dimColor>
           {userCount} {userCount === 1 ? "message" : "messages"}

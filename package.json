@@ -1,6 +1,6 @@
 {
   "name": "casabot",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "CasAbot — Skill-driven multi-agent orchestrator system",
   "type": "module",
   "main": "dist/index.js",
