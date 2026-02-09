@@ -10,13 +10,13 @@ const TIMEOUT_MS = 60_000;
 export const TERMINAL_TOOL: ToolDefinition = {
   name: "run_command",
   description:
-    "터미널에서 명령어를 실행합니다. 스킬 문서를 읽거나, 서브에이전트를 관리하거나, 시스템 작업을 수행할 때 사용합니다.",
+    "Executes a command in the terminal. Use this to read skill documents, manage sub-agents, or perform system tasks.",
   parameters: {
     type: "object",
     properties: {
       command: {
         type: "string",
-        description: "실행할 터미널 명령어",
+        description: "Terminal command to execute",
       },
     },
     required: ["command"],
@@ -31,10 +31,10 @@ export async function executeCommand(command: string): Promise<string> {
       shell: "/bin/bash",
     });
     const output = [stdout, stderr].filter(Boolean).join("\n");
-    return output || "(명령어가 출력 없이 완료되었습니다)";
+    return output || "(Command completed with no output)";
   } catch (err: unknown) {
     const error = err as { stdout?: string; stderr?: string; message: string };
     const parts = [error.stdout, error.stderr, error.message].filter(Boolean);
-    return `오류 발생:\n${parts.join("\n")}`;
+    return `Error occurred:\n${parts.join("\n")}`;
   }
 }

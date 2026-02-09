@@ -1,53 +1,53 @@
 ---
-name: 에이전트 생성 및 관리
-description: base가 서브에이전트를 만들고 관리하기 위한 매뉴얼
+name: Agent Creation & Management
+description: Manual for base to create and manage sub-agents
 metadata:
   casabot:
     requires:
       bins: [podman]
 ---
 
-# 에이전트 생성 및 관리
+# Agent Creation & Management
 
-이 매뉴얼은 base 에이전트가 podman 기반 서브에이전트를 생성·관리하는 방법을 설명합니다.
+This manual explains how the base agent creates and manages podman-based sub-agents.
 
 ---
 
-## 1. podman 설치
+## 1. Install podman
 
-서브에이전트를 만들기 전에 podman이 설치되어 있어야 합니다.
+podman must be installed before creating sub-agents.
 
 ```bash
-# 설치 확인
+# Check installation
 which podman
 
-# 미설치 시 (Debian/Ubuntu)
+# If not installed (Debian/Ubuntu)
 sudo apt update && sudo apt install -y podman
 
-# 미설치 시 (Fedora/RHEL)
+# If not installed (Fedora/RHEL)
 sudo dnf install -y podman
 ```
 
-## 2. podman 저장공간 설정
+## 2. Configure podman storage
 
-컨테이너 이미지와 레이어가 저장되는 경로를 확인하고, 디스크 용량이 충분한지 점검합니다.
+Check the path where container images and layers are stored, and verify sufficient disk space.
 
 ```bash
-# 저장 경로 확인
+# Check storage path
 podman info --format '{{.Store.GraphRoot}}'
 
-# 디스크 사용량 확인
+# Check disk usage
 df -h $(podman info --format '{{.Store.GraphRoot}}')
 ```
 
-사용량이 부족할 경우 `~/.config/containers/storage.conf`에서 `graphroot`를 변경합니다.
+If space is insufficient, change `graphroot` in `~/.config/containers/storage.conf`.
 
-## 3. 서브에이전트 컨테이너 생성
+## 3. Create sub-agent container
 
-모든 서브에이전트 컨테이너에는 반드시 `casabot` 라벨을 부여합니다.
+All sub-agent containers must be assigned the `casabot` label.
 
 ```bash
-# 새 에이전트 컨테이너 생성
+# Create a new agent container
 podman run -d \
   --name <agent-name> \
   --label casabot=true \
@@ -56,125 +56,127 @@ podman run -d \
   node:20-slim sleep infinity
 ```
 
-### 필수 규칙
-- `--label casabot=true`: 모든 CasAbot 서브에이전트 식별에 사용됩니다.
-- `-v ~/casabot/workspaces/<agent-name>:/workspace`: 에이전트별 전용 작업 공간을 마운트합니다.
-- `-v ~/casabot/skills:/skills:ro`: 스킬 디렉토리를 읽기 전용으로 공유합니다.
+### Required rules
+- `--label casabot=true`: Used to identify all CasAbot sub-agents.
+- `-v ~/casabot/workspaces/<agent-name>:/workspace`: Mounts a dedicated workspace for each agent.
+- `-v ~/casabot/skills:/skills:ro`: Shares the skills directory as read-only.
 
-컨테이너 생성 후 에이전트 스크립트를 복사하고 실행합니다:
+After creating the container, copy and run the agent script:
 
 ```bash
 podman cp <script-path> <agent-name>:/workspace/agent.js
 podman exec <agent-name> node /workspace/agent.js
 ```
 
-## 4. 공급자(Provider) 설정 전달
+## 4. Pass provider settings
 
-서브에이전트에게 LLM 공급자 정보를 환경변수로 전달합니다.
+> **Important:** Read the current provider settings from `~/casabot/casabot.json` or ask the user for the provider type, API key, and model name. Do not hardcode these values.
+
+Pass LLM provider information to sub-agents via environment variables.
 
 ```bash
-# 환경변수로 API 키 및 모델 전달
+# Pass API key and model via environment variables
 podman exec \
-  -e PROVIDER_TYPE=openai \
+  -e PROVIDER_TYPE=<provider-type> \
   -e API_KEY=<key> \
   -e MODEL=<model> \
   -e ENDPOINT=<endpoint> \
   <agent-name> node /workspace/agent.js
 ```
 
-또는 컨테이너 생성 시 `-e` 옵션으로 미리 설정할 수도 있습니다:
+Or set them in advance with `-e` options when creating the container:
 
 ```bash
 podman run -d \
   --name <agent-name> \
   --label casabot=true \
-  -e PROVIDER_TYPE=openai \
+  -e PROVIDER_TYPE=<provider-type> \
   -e API_KEY=<key> \
-  -e MODEL=gpt-4o \
+  -e MODEL=<model> \
   -v ~/casabot/workspaces/<agent-name>:/workspace \
   -v ~/casabot/skills:/skills:ro \
   node:20-slim sleep infinity
 ```
 
-## 5. 스킬 전달
+## 5. Pass skills
 
-컨테이너 생성 시 `-v ~/casabot/skills:/skills:ro`로 마운트하면 서브에이전트가 스킬 문서를 읽을 수 있습니다.
+Mount with `-v ~/casabot/skills:/skills:ro` when creating the container so sub-agents can read skill documents.
 
-서브에이전트 내부에서 스킬을 읽는 방법:
+How to read skills inside a sub-agent:
 
 ```bash
-# 컨테이너 내부에서
+# Inside the container
 cat /skills/agent/SKILL.md
 cat /skills/memory/SKILL.md
 ls /skills/
 ```
 
-## 6. 에이전트 목록 조회
+## 6. List agents
 
-`casabot` 라벨이 붙은 모든 컨테이너를 조회합니다.
+Query all containers with the `casabot` label.
 
 ```bash
-# 실행 중인 에이전트 목록
+# List running agents
 podman ps --filter "label=casabot" --format "{{.Names}}\t{{.Status}}"
 
-# 전체 에이전트 (중지 포함)
+# All agents (including stopped)
 podman ps -a --filter "label=casabot" --format "table {{.Names}}\t{{.Status}}\t{{.Created}}"
 ```
 
-## 7. 에이전트 파괴 및 정리
+## 7. Destroy and clean up agents
 
-사용이 끝난 에이전트를 정리합니다.
+Clean up agents that are no longer needed.
 
 ```bash
-# 컨테이너 중지 및 삭제
+# Stop and remove container
 podman stop <agent-name> && podman rm <agent-name>
 
-# 워크스페이스도 함께 정리할 경우
+# To also clean up the workspace
 rm -rf ~/casabot/workspaces/<agent-name>
 ```
 
-### 일괄 정리
+### Bulk cleanup
 
 ```bash
-# 모든 CasAbot 에이전트 중지 및 삭제
+# Stop and remove all CasAbot agents
 podman ps -a --filter "label=casabot" --format "{{.Names}}" | xargs -r podman stop
 podman ps -a --filter "label=casabot" --format "{{.Names}}" | xargs -r podman rm
 ```
 
-## 8. 작업 위임
+## 8. Delegate tasks
 
-서브에이전트에게 작업을 전달하는 방법입니다.
+How to pass tasks to sub-agents.
 
 ```bash
-# stdin으로 작업 전달
+# Pass task via stdin
 echo "<task-description>" | podman exec -i <agent-name> node /workspace/agent.js
 
-# 파일로 작업 전달
+# Pass task via file
 echo "<task-description>" > ~/casabot/workspaces/<agent-name>/task.txt
 podman exec <agent-name> node /workspace/agent.js --task /workspace/task.txt
 ```
 
-### 위임 원칙
-- base는 오케스트레이터입니다. 실제 작업은 서브에이전트에게 위임하세요.
-- 적합한 서브에이전트가 없으면 새로 만들어서 위임하세요.
-- 작업 설명은 구체적이고 명확하게 작성하세요.
+### Delegation principles
+- base is an orchestrator. Delegate actual work to sub-agents.
+- If no suitable sub-agent exists, create a new one and delegate.
+- Write task descriptions clearly and specifically.
 
-## 9. 결과 수집
+## 9. Collect results
 
-서브에이전트의 작업 결과를 확인합니다.
+Check the results of sub-agent work.
 
 ```bash
-# 에이전트 로그 확인
+# Check agent logs
 podman logs <agent-name>
 
-# 최근 로그만 확인
+# Check recent logs only
 podman logs --tail 50 <agent-name>
 
-# 워크스페이스 출력 파일 확인
+# Check workspace output files
 ls ~/casabot/workspaces/<agent-name>/output/
 
-# 결과 파일 내용 읽기
+# Read result file contents
 cat ~/casabot/workspaces/<agent-name>/output/result.txt
 ```
 
-결과를 수집한 뒤, 사용자에게 요약하여 보고합니다.
+After collecting results, summarize and report to the user.

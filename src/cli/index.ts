@@ -12,33 +12,33 @@ const program = new Command();
 
 program
   .name("casabot")
-  .description("CasAbot — 스킬 중심 멀티에이전트 오케스트레이터")
+  .description("CasAbot — Skill-based Multi-Agent Orchestrator")
   .version("1.0.0");
 
 program
   .command("setup")
-  .description("최초 설정 (공급자, 모델 등 전체 설정)")
+  .description("Initial setup (providers, models, and all settings)")
   .action(async () => {
     try {
       await setupWizard();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`❌ 설정 중 오류 발생: ${msg}`);
+      console.error(`❌ Error during setup: ${msg}`);
       process.exit(1);
     }
   });
 
 program
   .command("reset")
-  .description("초기 설정으로 되돌리기")
+  .description("Reset to default settings")
   .action(async () => {
     try {
       await saveConfig(getDefaultConfig());
-      console.log("✅ 설정이 초기화되었습니다.");
-      console.log("'casabot setup' 명령어로 다시 설정하세요.");
+      console.log("✅ Settings have been reset.");
+      console.log("Run 'casabot setup' to reconfigure.");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`❌ 초기화 중 오류 발생: ${msg}`);
+      console.error(`❌ Error during reset: ${msg}`);
       process.exit(1);
     }
   });
@@ -51,8 +51,8 @@ program
       const config = await loadConfig();
 
       if (!config.activeProvider || config.providers.length === 0) {
-        console.log("⚠️  공급자가 설정되지 않았습니다.");
-        console.log("'casabot setup' 명령어로 먼저 설정하세요.\n");
+        console.log("⚠️  No provider configured.");
+        console.log("Run 'casabot setup' first.\n");
         process.exit(1);
       }
 
@@ -61,8 +61,8 @@ program
       );
 
       if (!providerConfig) {
-        console.error(`❌ 활성 공급자 '${config.activeProvider}'를 찾을 수 없습니다.`);
-        console.error("'casabot setup' 명령어로 다시 설정하세요.");
+        console.error(`❌ Active provider '${config.activeProvider}' not found.`);
+        console.error("Run 'casabot setup' to reconfigure.");
         process.exit(1);
       }
 
@@ -73,7 +73,7 @@ program
       startTUI(provider, conversation, skills);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`❌ 시작 중 오류 발생: ${msg}`);
+      console.error(`❌ Error during startup: ${msg}`);
       process.exit(1);
     }
   });

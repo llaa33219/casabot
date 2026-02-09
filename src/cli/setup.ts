@@ -16,172 +16,178 @@ function askQuestion(
 }
 
 const PROVIDER_OPTIONS: { label: string; type: ProviderType; defaultModel: string }[] = [
-  { label: "OpenAI", type: "openai", defaultModel: "gpt-4o" },
-  { label: "Anthropic", type: "anthropic", defaultModel: "claude-sonnet-4-20250514" },
-  { label: "Hugging Face", type: "huggingface", defaultModel: "meta-llama/Meta-Llama-3-8B-Instruct" },
-  { label: "OpenRouter", type: "openrouter", defaultModel: "openai/gpt-4o" },
-  { label: "Custom (OpenAI 호환)", type: "custom-openai", defaultModel: "" },
-  { label: "Custom (Anthropic 호환)", type: "custom-anthropic", defaultModel: "" },
+  { label: "OpenAI", type: "openai", defaultModel: "gpt-5.2-codex" },
+  { label: "Anthropic", type: "anthropic", defaultModel: "claude-opus-4-6" },
+  { label: "Hugging Face", type: "huggingface", defaultModel: "" },
+  { label: "OpenRouter", type: "openrouter", defaultModel: "" },
+  { label: "Custom (OpenAI compatible)", type: "custom-openai", defaultModel: "" },
+  { label: "Custom (Anthropic compatible)", type: "custom-anthropic", defaultModel: "" },
 ];
 
 async function installDefaultSkills(): Promise<void> {
   const defaultSkills: Record<string, { name: string; description: string; content: string }> = {
     agent: {
-      name: "에이전트 생성 및 관리",
-      description: "base가 서브에이전트를 만들고 관리하기 위한 매뉴얼",
-      content: `# 에이전트 생성 및 관리
+      name: "Agent Creation & Management",
+      description: "Manual for base to create and manage sub-agents",
+      content: `# Agent Creation & Management
 
-## podman 설치
+## Install podman
 \`\`\`bash
-# 설치 확인
+# Check installation
 which podman || sudo apt install -y podman
 \`\`\`
 
-## podman 저장공간 설정
+## Configure podman storage
 \`\`\`bash
-# 저장 경로 확인
+# Check storage path
 podman info --format '{{.Store.GraphRoot}}'
 \`\`\`
 
-## 서브에이전트 컨테이너 생성
+## Create sub-agent container
 \`\`\`bash
-# 새 에이전트 컨테이너 생성
+# Create a new agent container
 podman run -d --name <agent-name> \\
   -v ~/casabot/workspaces/<agent-name>:/workspace \\
   -v ~/casabot/skills:/skills:ro \\
   node:20-slim sleep infinity
 
-# 에이전트 스크립트 복사 및 실행
+# Copy and run agent script
 podman cp <script-path> <agent-name>:/workspace/agent.js
 podman exec <agent-name> node /workspace/agent.js
 \`\`\`
 
-## 공급자 설정 전달
+## Pass provider settings
+
+> **Important:** Read the current provider settings from \`~/casabot/casabot.json\` or ask the user for the provider type, API key, and model name. Do not hardcode these values.
+
 \`\`\`bash
-# 환경변수로 API 키 전달
-podman exec -e API_KEY=<key> -e MODEL=<model> <agent-name> node /workspace/agent.js
+# Pass API key via environment variables
+podman exec -e PROVIDER_TYPE=<provider-type> -e API_KEY=<key> -e MODEL=<model> <agent-name> node /workspace/agent.js
 \`\`\`
 
-## 스킬 전달
-컨테이너 생성 시 \`-v ~/casabot/skills:/skills:ro\`로 마운트하면 에이전트가 스킬을 읽을 수 있습니다.
+## Pass skills
+Mount with \`-v ~/casabot/skills:/skills:ro\` when creating the container so the agent can read skills.
 
-## 에이전트 목록 조회
+## List agents
 \`\`\`bash
 podman ps --filter "label=casabot" --format "{{.Names}}\\t{{.Status}}"
 \`\`\`
 
-## 에이전트 파괴 및 정리
+## Destroy and clean up agents
 \`\`\`bash
 podman stop <agent-name> && podman rm <agent-name>
-# 워크스페이스도 정리할 경우:
+# To also clean up the workspace:
 rm -rf ~/casabot/workspaces/<agent-name>
 \`\`\`
 
-## 작업 위임
+## Delegate tasks
 \`\`\`bash
-# 에이전트에 작업 전달 (stdin으로)
+# Pass task to agent (via stdin)
 echo "<task-description>" | podman exec -i <agent-name> node /workspace/agent.js
 \`\`\`
 
-## 결과 수집
+## Collect results
 \`\`\`bash
-# 에이전트 출력 확인
+# Check agent output
 podman logs <agent-name>
-# 워크스페이스 결과 파일 확인
+# Check workspace result files
 ls ~/casabot/workspaces/<agent-name>/output/
 \`\`\``,
     },
     config: {
-      name: "CasAbot 설정",
-      description: "CasAbot 자체의 구조와 설정을 이해하기 위한 매뉴얼",
-      content: `# CasAbot 설정
+      name: "CasAbot Configuration",
+      description: "Manual for understanding CasAbot's structure and configuration",
+      content: `# CasAbot Configuration
 
-## 디렉토리 구조
+## Directory Structure
 \`\`\`
 ~/casabot/
-├── casabot.json          # 모든 설정
-├── skills/               # 스킬 디렉토리 (SKILL.md 포함)
+├── casabot.json          # All settings
+├── skills/               # Skills directory (contains SKILL.md)
 │   ├── agent/
 │   ├── config/
 │   ├── chat/
 │   ├── service/
 │   └── memory/
-├── workspaces/           # 에이전트별 워크스페이스
-├── history/              # 대화 전체 기록 (원본 로그)
-└── memory/               # 에이전트가 직접 작성한 메모 (.md)
+├── workspaces/           # Per-agent workspaces
+├── history/              # Full conversation logs (raw logs)
+└── memory/               # Agent-written memos (.md)
 \`\`\`
 
-## casabot.json 스키마
+## casabot.json Schema
 \`\`\`json
 {
   "providers": [
     {
-      "name": "공급자 이름",
+      "name": "provider name",
       "type": "openai | anthropic | huggingface | openrouter | custom-openai | custom-anthropic",
-      "apiKey": "API 키",
-      "endpoint": "커스텀 엔드포인트 (선택)",
-      "model": "모델 이름",
+      "apiKey": "API key",
+      "endpoint": "custom endpoint (optional)",
+      "model": "model name",
       "isDefault": true
     }
   ],
-  "activeProvider": "활성 공급자 이름",
-  "baseModel": "기본 모델 이름"
+  "activeProvider": "active provider name",
+  "baseModel": "base model name"
 }
 \`\`\`
 
-## 공급자 추가 방법
-casabot.json의 providers 배열에 새 항목을 추가합니다:
+## Adding a Provider
+
+> **Important:** Read \`~/casabot/casabot.json\` to check the current provider and model settings before making changes. Ask the user which provider, model, and API key to use if not specified.
+
+Add a new entry to the providers array in casabot.json:
 \`\`\`bash
-# casabot.json 편집
-cat ~/casabot/casabot.json | jq '.providers += [{"name":"new","type":"openai","apiKey":"sk-...","model":"gpt-4o","isDefault":false}]' > /tmp/casabot.json && mv /tmp/casabot.json ~/casabot/casabot.json
+# Edit casabot.json
+cat ~/casabot/casabot.json | jq '.providers += [{"name":"<provider-name>","type":"<provider-type>","apiKey":"<api-key>","model":"<model-name>","isDefault":false}]' > /tmp/casabot.json && mv /tmp/casabot.json ~/casabot/casabot.json
 \`\`\`
 
-## 공급자 변경 방법
-activeProvider 값을 변경합니다:
+## Changing Provider
+Change the activeProvider value:
 \`\`\`bash
-cat ~/casabot/casabot.json | jq '.activeProvider = "new-provider-name"' > /tmp/casabot.json && mv /tmp/casabot.json ~/casabot/casabot.json
+cat ~/casabot/casabot.json | jq '.activeProvider = "<provider-name>"' > /tmp/casabot.json && mv /tmp/casabot.json ~/casabot/casabot.json
 \`\`\``,
     },
     chat: {
-      name: "대화 관리",
-      description: "대화 세션을 관리하고 외부 서비스와 연동하기 위한 매뉴얼",
-      content: `# 대화 관리
+      name: "Conversation Management",
+      description: "Manual for managing conversation sessions and integrating with external services",
+      content: `# Conversation Management
 
-## 대화 세션 관리
-대화 기록은 ~/casabot/history/ 에 JSON 파일로 저장됩니다.
+## Session Management
+Conversation logs are stored as JSON files in ~/casabot/history/.
 
-## 대화 불러오기
+## Loading Conversations
 \`\`\`bash
-# 최근 대화 목록
+# Recent conversation list
 ls -lt ~/casabot/history/ | head -20
 
-# 특정 대화 내용 보기
+# View specific conversation
 cat ~/casabot/history/<conversation-id>.json | jq '.messages[] | {role, content: .content[:100]}'
 \`\`\`
 
-## 이전 대화 검색
+## Searching Previous Conversations
 \`\`\`bash
-# 키워드로 대화 검색
-grep -rl "검색어" ~/casabot/history/
+# Search conversations by keyword
+grep -rl "keyword" ~/casabot/history/
 
-# 특정 날짜 이후 대화
+# Find conversations after a specific date
 find ~/casabot/history/ -newer <date-reference-file> -name "*.json"
 \`\`\`
 
-## 외부 서비스 연동
-외부 서비스(WhatsApp, Discord 등)와의 연동은 서브에이전트를 통해 처리합니다:
-1. 연동 서브에이전트를 생성합니다 (agent 스킬 참조)
-2. 해당 서비스의 API/봇을 설정합니다
-3. 메시지를 수신하면 base에게 전달하고, 응답을 서비스로 보냅니다`,
+## External Service Integration
+Integration with external services (WhatsApp, Discord, etc.) is handled through sub-agents:
+1. Create an integration sub-agent (see agent skill)
+2. Set up the service's API/bot
+3. When a message is received, forward it to base and send the response back to the service`,
     },
     service: {
-      name: "시스템 서비스 등록",
-      description: "자동 시작 및 서비스 연동을 설정하기 위한 매뉴얼",
-      content: `# 시스템 서비스 등록
+      name: "System Service Registration",
+      description: "Manual for configuring auto-start and service integration",
+      content: `# System Service Registration
 
-## base 자동 시작 (systemd)
+## Auto-start base (systemd)
 \`\`\`bash
-# systemd 서비스 파일 생성
+# Create systemd service file
 cat > ~/.config/systemd/user/casabot.service << 'EOF'
 [Unit]
 Description=CasAbot Base Agent
@@ -198,78 +204,78 @@ WorkingDirectory=%h/casabot
 WantedBy=default.target
 EOF
 
-# 서비스 활성화 및 시작
+# Enable and start service
 systemctl --user daemon-reload
 systemctl --user enable casabot
 systemctl --user start casabot
 \`\`\`
 
-## 서비스 상태 확인
+## Check service status
 \`\`\`bash
 systemctl --user status casabot
 journalctl --user -u casabot -f
 \`\`\`
 
-## 특정 에이전트 자동 시작
-에이전트 컨테이너에 \`--restart=always\` 옵션을 추가합니다:
+## Auto-start specific agents
+Add the \`--restart=always\` option to agent containers:
 \`\`\`bash
 podman run -d --restart=always --name <agent-name> ...
 \`\`\`
 
-## 외부 서비스 연동 자동화
-cron 또는 systemd timer를 사용하여 주기적 작업을 설정합니다:
+## Automate external service integration
+Use cron or systemd timers to set up periodic tasks:
 \`\`\`bash
-# crontab 편집
+# Edit crontab
 crontab -e
-# 매 5분마다 모니터링 에이전트 실행
+# Run monitoring agent every 5 minutes
 */5 * * * * podman exec monitor node /workspace/check.js
 \`\`\``,
     },
     memory: {
-      name: "기록",
-      description: "base와 서브에이전트가 기록(memory)을 작성하고 조회하기 위한 매뉴얼",
-      content: `# 기록 (Memory)
+      name: "Memory",
+      description: "Manual for base and sub-agents to write and query memory",
+      content: `# Memory
 
-## 기억(History)과 기록(Memory)의 차이
-- **기억 (History)**: ~/casabot/history/ — 대화 전체의 원본 로그 (자동 저장, 수정 불가)
-- **기록 (Memory)**: ~/casabot/memory/ — 에이전트가 직접 작성한 메모 (.md 파일)
+## Difference between History and Memory
+- **History**: ~/casabot/history/ — Raw logs of entire conversations (auto-saved, read-only)
+- **Memory**: ~/casabot/memory/ — Memos written directly by agents (.md files)
 
-## 기록 파일 위치
+## Memory file location
 ~/casabot/memory/
 
-## 기록 작성 규칙
-- 파일 형식: 마크다운 (.md)
-- 파일명: \`YYYY-MM-DD-주제.md\` 또는 \`주제.md\`
-- 내용: 자유 형식이나 다음을 포함하면 좋음:
-  - 날짜/시간
-  - 작성자 (어떤 에이전트가 작성했는지)
-  - 요약
-  - 상세 내용
+## Writing rules
+- File format: Markdown (.md)
+- Filename: \`YYYY-MM-DD-topic.md\` or \`topic.md\`
+- Content: Free format, but ideally includes:
+  - Date/time
+  - Author (which agent wrote it)
+  - Summary
+  - Details
 
-### 기록 작성 예시
+### Writing example
 \`\`\`bash
-cat > ~/casabot/memory/2024-01-15-프로젝트-분석.md << 'EOF'
-# 프로젝트 분석 결과
-- 작성자: code-reviewer
-- 날짜: 2024-01-15
+cat > ~/casabot/memory/2024-01-15-project-analysis.md << 'EOF'
+# Project Analysis Results
+- Author: code-reviewer
+- Date: 2024-01-15
 
-## 요약
-사용자의 프로젝트 코드를 분석한 결과...
+## Summary
+Analysis results of the user's project code...
 
-## 상세
+## Details
 ...
 EOF
 \`\`\`
 
-## 기록 조회 및 검색
+## Querying and searching memory
 \`\`\`bash
-# 전체 기록 목록
+# List all memory files
 ls -lt ~/casabot/memory/
 
-# 키워드 검색
-grep -rl "검색어" ~/casabot/memory/
+# Search by keyword
+grep -rl "keyword" ~/casabot/memory/
 
-# 특정 기록 읽기
+# Read specific memory file
 cat ~/casabot/memory/<filename>.md
 \`\`\``,
     },
@@ -302,18 +308,18 @@ export async function setupWizard(): Promise<void> {
   });
 
   try {
-    console.log("\n🌟 CasAbot 설정을 시작합니다.\n");
+    console.log("\n🌟 Starting CasAbot setup.\n");
 
-    console.log("공급자를 선택하세요:");
+    console.log("Select a provider:");
     PROVIDER_OPTIONS.forEach((opt, i) => {
       console.log(`  ${i + 1}. ${opt.label}`);
     });
 
-    const choiceStr = await askQuestion(rl, `\n선택 (1-${PROVIDER_OPTIONS.length}): `);
+    const choiceStr = await askQuestion(rl, `\nChoice (1-${PROVIDER_OPTIONS.length}): `);
     const choice = parseInt(choiceStr, 10) - 1;
 
     if (choice < 0 || choice >= PROVIDER_OPTIONS.length) {
-      console.error("❌ 잘못된 선택입니다.");
+      console.error("❌ Invalid selection.");
       return;
     }
 
@@ -321,29 +327,29 @@ export async function setupWizard(): Promise<void> {
 
     const apiKey = await askQuestion(rl, "API Key: ");
     if (!apiKey) {
-      console.error("❌ API Key는 필수입니다.");
+      console.error("❌ API Key is required.");
       return;
     }
 
     let endpoint: string | undefined;
     if (selected.type === "custom-openai" || selected.type === "custom-anthropic") {
-      endpoint = await askQuestion(rl, "엔드포인트 URL: ");
+      endpoint = await askQuestion(rl, "Endpoint URL: ");
       if (!endpoint) {
-        console.error("❌ 커스텀 공급자는 엔드포인트가 필수입니다.");
+        console.error("❌ Custom providers require an endpoint.");
         return;
       }
     }
 
-    const defaultModelHint = selected.defaultModel ? ` (기본: ${selected.defaultModel})` : "";
-    const modelInput = await askQuestion(rl, `모델${defaultModelHint}: `);
+    const defaultModelHint = selected.defaultModel ? ` (default: ${selected.defaultModel})` : "";
+    const modelInput = await askQuestion(rl, `Model${defaultModelHint}: `);
     const model = modelInput || selected.defaultModel;
 
     if (!model) {
-      console.error("❌ 모델 이름은 필수입니다.");
+      console.error("❌ Model name is required.");
       return;
     }
 
-    const nameInput = await askQuestion(rl, `공급자 이름 (기본: ${selected.type}): `);
+    const nameInput = await askQuestion(rl, `Provider name (default: ${selected.type}): `);
     const providerName = nameInput || selected.type;
 
     const providerConfig: ProviderConfig = {
@@ -364,14 +370,14 @@ export async function setupWizard(): Promise<void> {
     config.baseModel = model;
     await saveConfig(config);
 
-    console.log("\n📦 기본 스킬을 설치합니다...");
+    console.log("\n📦 Installing default skills...");
     await installDefaultSkills();
 
-    console.log("\n✅ 설정이 완료되었습니다!");
-    console.log(`   공급자: ${providerName} (${selected.label})`);
-    console.log(`   모델: ${model}`);
-    console.log(`   설정 파일: ~/casabot/casabot.json`);
-    console.log("\n'casabot' 명령어로 시작하세요.\n");
+    console.log("\n✅ Setup complete!");
+    console.log(`   Provider: ${providerName} (${selected.label})`);
+    console.log(`   Model: ${model}`);
+    console.log(`   Config file: ~/casabot/casabot.json`);
+    console.log("\nRun 'casabot' to get started.\n");
   } finally {
     rl.close();
   }

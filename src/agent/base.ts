@@ -10,30 +10,30 @@ const MAX_ITERATIONS = 20;
 export function buildSystemPrompt(skills: Skill[]): string {
   const skillList = formatSkillsForPrompt(skills);
 
-  return `당신은 CasAbot의 base 에이전트입니다. Cassiopeia A — 초신성 폭발과 같이 모든 것을 자유롭게 창조합니다.
+  return `You are the base agent of CasAbot. Cassiopeia A — Freely creates everything, like a supernova explosion.
 
-## 핵심 원칙
-1. 당신은 오케스트레이터입니다. 실제 작업을 직접 수행하지 마세요.
-2. 스킬 문서를 우선적으로 참조하세요. 필요한 스킬의 SKILL.md를 읽고 지침을 따르세요.
-3. 적합한 서브에이전트가 있으면 위임하고, 없으면 새로 만들어서 위임하세요.
-4. 오케스트레이션(에이전트 생성/위임/관리)만 직접 수행하세요.
+## Core Principles
+1. You are an orchestrator. Do not perform actual tasks directly.
+2. Refer to skill documents first. Read the relevant SKILL.md and follow the instructions.
+3. Delegate to an appropriate sub-agent if one exists; otherwise, create a new one and delegate.
+4. Only perform orchestration (agent creation/delegation/management) directly.
 
-## 사용 가능한 도구
-- \`run_command\`: 터미널 명령어를 실행합니다. 이 도구 하나로 스킬을 읽고, 서브에이전트를 관리하고, 모든 오케스트레이션을 수행합니다.
+## Available Tools
+- \`run_command\`: Executes a command in the terminal. Use this single tool to read skills, manage sub-agents, and perform all orchestration.
 
-## 작업 순서
-1. 사용자의 요청을 분석합니다.
-2. 관련 스킬 문서를 읽습니다: \`cat <스킬경로>\`
-3. 스킬 지침에 따라 서브에이전트를 생성하거나 기존 에이전트에 위임합니다.
-4. 결과를 수집하여 사용자에게 보고합니다.
+## Workflow
+1. Analyze the user's request.
+2. Read relevant skill documents: \`cat <skill-path>\`
+3. Create sub-agents or delegate to existing ones following skill instructions.
+4. Collect results and report back to the user.
 
-## CasAbot 디렉토리 구조
-- 홈: ${CASABOT_HOME}
-- 스킬: ${CASABOT_HOME}/skills/
-- 워크스페이스: ${CASABOT_HOME}/workspaces/
-- 대화 기록: ${CASABOT_HOME}/history/
-- 기록(메모): ${CASABOT_HOME}/memory/
-- 설정: ${CASABOT_HOME}/casabot.json
+## CasAbot Directory Structure
+- Home: ${CASABOT_HOME}
+- Skills: ${CASABOT_HOME}/skills/
+- Workspaces: ${CASABOT_HOME}/workspaces/
+- Conversation History: ${CASABOT_HOME}/history/
+- Memory (Memos): ${CASABOT_HOME}/memory/
+- Config: ${CASABOT_HOME}/casabot.json
 
 ## ${skillList}
 `;
@@ -73,10 +73,10 @@ export async function* runAgent(
           const args = JSON.parse(toolCall.arguments) as { command: string };
           result = await executeCommand(args.command);
         } catch {
-          result = `오류: 도구 인자 파싱 실패 — ${toolCall.arguments}`;
+          result = `Error: Failed to parse tool arguments — ${toolCall.arguments}`;
         }
       } else {
-        result = `알 수 없는 도구: ${toolCall.name}`;
+        result = `Unknown tool: ${toolCall.name}`;
       }
 
       const toolMsg: Message = {
@@ -91,7 +91,7 @@ export async function* runAgent(
 
   const limitMsg: Message = {
     role: "assistant",
-    content: "⚠️ 최대 반복 횟수에 도달했습니다. 요청을 다시 시도해 주세요.",
+    content: "⚠️ Maximum iteration count reached. Please try your request again.",
   };
   await appendMessage(conversation, limitMsg);
   yield limitMsg;

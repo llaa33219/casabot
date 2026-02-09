@@ -7,14 +7,14 @@ import { runAgent } from "../agent/base.js";
 function truncateOutput(content: string, maxLines = 5): string {
   const lines = content.split("\n");
   if (lines.length <= maxLines) return content;
-  return lines.slice(0, maxLines).join("\n") + `\n  ... (${lines.length - maxLines}줄 더)`;
+  return lines.slice(0, maxLines).join("\n") + `\n  ... (${lines.length - maxLines} more lines)`;
 }
 
 function MessageView({ message }: { message: Message }): React.ReactElement {
   if (message.role === "user") {
     return (
       <Box>
-        <Text color="green" bold>{"사용자: "}</Text>
+        <Text color="green" bold>{"User: "}</Text>
         <Text>{message.content}</Text>
       </Box>
     );
@@ -23,7 +23,7 @@ function MessageView({ message }: { message: Message }): React.ReactElement {
   if (message.role === "tool") {
     return (
       <Box flexDirection="column">
-        <Text dimColor bold>{"[도구 결과]"}</Text>
+        <Text dimColor bold>{"[Tool Result]"}</Text>
         <Text dimColor>{truncateOutput(message.content)}</Text>
       </Box>
     );
@@ -91,7 +91,7 @@ function App({ provider, conversation, skills }: AppProps): React.ReactElement {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: `❌ 오류 발생: ${errorMsg}` },
+        { role: "assistant", content: `❌ Error occurred: ${errorMsg}` },
       ]);
     }
 
@@ -127,7 +127,7 @@ function App({ provider, conversation, skills }: AppProps): React.ReactElement {
         <Text bold color="cyan">
           {"🌟 CasAbot > "}
         </Text>
-        <Text dimColor>Cassiopeia A — 초신성 폭발과 같이 모든 것을 자유롭게 창조한다.</Text>
+        <Text dimColor>Cassiopeia A — Freely creates everything, like a supernova explosion.</Text>
       </Box>
 
       {messages.map((msg, i) => (
@@ -135,7 +135,7 @@ function App({ provider, conversation, skills }: AppProps): React.ReactElement {
       ))}
 
       {isProcessing && (
-        <Text color="yellow">{"⏳ 처리 중..."}</Text>
+        <Text color="yellow">{"⏳ Processing..."}</Text>
       )}
 
       <Box marginTop={1}>

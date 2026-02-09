@@ -40,13 +40,13 @@ export async function loadSkills(): Promise<Skill[]> {
 }
 
 export function formatSkillsForPrompt(skills: Skill[]): string {
-  if (skills.length === 0) return "사용 가능한 스킬이 없습니다.";
+  if (skills.length === 0) return "No skills available.";
 
-  const lines = ["사용 가능한 스킬 목록:"];
+  const lines = ["Available Skills:"];
   for (const skill of skills) {
     lines.push(`\n### ${skill.name}`);
     if (skill.description) lines.push(skill.description);
-    lines.push(`경로: ${skill.path}`);
+    lines.push(`Path: ${skill.path}`);
   }
   return lines.join("\n");
 }

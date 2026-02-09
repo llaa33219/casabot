@@ -1,167 +1,169 @@
 ---
-name: CasAbot 설정
-description: CasAbot 자체의 구조와 설정을 이해하기 위한 매뉴얼
+name: CasAbot Configuration
+description: Manual for understanding CasAbot's structure and configuration
 metadata:
   casabot:
     requires:
       bins: [jq]
 ---
 
-# CasAbot 설정
+# CasAbot Configuration
 
-이 매뉴얼은 CasAbot의 디렉토리 구조, 설정 파일 스키마, 공급자 관리 방법을 설명합니다.
+This manual explains CasAbot's directory structure, configuration file schema, and provider management methods.
 
 ---
 
-## 1. 디렉토리 구조
+## 1. Directory Structure
 
-CasAbot의 모든 데이터는 `~/casabot/` 아래에 저장됩니다.
+All CasAbot data is stored under `~/casabot/`.
 
 ```
 ~/casabot/
-├── casabot.json          # 모든 설정 (공급자, 모델 등)
-├── skills/               # 스킬 디렉토리 (SKILL.md 포함)
-│   ├── agent/            # 에이전트 생성 및 관리
-│   ├── config/           # 설정 관리 (이 문서)
-│   ├── chat/             # 대화 관리
-│   ├── service/          # 시스템 서비스 등록
-│   └── memory/           # 기록(메모) 관리
-├── workspaces/           # 에이전트별 워크스페이스
-│   └── <agent-name>/     # 개별 에이전트 작업 디렉토리
-│       └── output/       # 에이전트 출력 결과
-├── history/              # 대화 전체 기록 (원본 로그, JSON)
-└── memory/               # 에이전트가 직접 작성한 메모 (.md)
+├── casabot.json          # All settings (providers, models, etc.)
+├── skills/               # Skills directory (contains SKILL.md)
+│   ├── agent/            # Agent creation & management
+│   ├── config/           # Configuration management (this document)
+│   ├── chat/             # Conversation management
+│   ├── service/          # System service registration
+│   └── memory/           # Memory (memo) management
+├── workspaces/           # Per-agent workspaces
+│   └── <agent-name>/     # Individual agent working directory
+│       └── output/       # Agent output results
+├── history/              # Full conversation logs (raw logs, JSON)
+└── memory/               # Agent-written memos (.md)
 ```
 
-### 각 디렉토리의 역할
+### Role of Each Directory
 
-| 디렉토리 | 설명 | 형식 |
-|---------|------|------|
-| `casabot.json` | 공급자 설정, 활성 모델 등 전체 설정 | JSON |
-| `skills/` | base 에이전트가 참조하는 스킬 매뉴얼 | SKILL.md (YAML + Markdown) |
-| `workspaces/` | 서브에이전트 컨테이너에 마운트되는 작업 공간 | 자유 형식 |
-| `history/` | 자동 저장되는 대화 로그 (수정 불가) | JSON |
-| `memory/` | 에이전트가 직접 작성하는 메모 | Markdown |
+| Directory | Description | Format |
+|-----------|-------------|--------|
+| `casabot.json` | Provider settings, active model, and all configuration | JSON |
+| `skills/` | Skill manuals referenced by the base agent | SKILL.md (YAML + Markdown) |
+| `workspaces/` | Working spaces mounted to sub-agent containers | Free format |
+| `history/` | Auto-saved conversation logs (read-only) | JSON |
+| `memory/` | Memos written directly by agents | Markdown |
 
-## 2. casabot.json 스키마
+## 2. casabot.json Schema
 
-설정 파일의 전체 구조입니다.
+Full structure of the configuration file.
 
 ```json
 {
   "providers": [
     {
-      "name": "공급자 이름 (고유 식별자)",
+      "name": "provider name (unique identifier)",
       "type": "openai | anthropic | huggingface | openrouter | custom-openai | custom-anthropic",
-      "apiKey": "API 키",
-      "endpoint": "커스텀 엔드포인트 URL (선택, custom-* 타입에서 필수)",
-      "model": "모델 이름",
+      "apiKey": "API key",
+      "endpoint": "custom endpoint URL (optional, required for custom-* types)",
+      "model": "model name",
       "isDefault": true
     }
   ],
-  "activeProvider": "현재 사용 중인 공급자 이름",
-  "baseModel": "기본 모델 이름"
+  "activeProvider": "name of the currently active provider",
+  "baseModel": "base model name"
 }
 ```
 
-### 필드 설명
+### Field Descriptions
 
-| 필드 | 타입 | 필수 | 설명 |
-|-----|------|-----|------|
-| `providers` | 배열 | ✅ | 등록된 공급자 목록 |
-| `providers[].name` | 문자열 | ✅ | 공급자의 고유 이름 |
-| `providers[].type` | 문자열 | ✅ | 공급자 타입 (아래 지원 타입 참조) |
-| `providers[].apiKey` | 문자열 | ✅ | 해당 공급자의 API 키 |
-| `providers[].endpoint` | 문자열 | ❌ | 커스텀 엔드포인트 (custom-openai, custom-anthropic에서 필수) |
-| `providers[].model` | 문자열 | ✅ | 사용할 모델 이름 |
-| `providers[].isDefault` | 불리언 | ✅ | 기본 공급자 여부 |
-| `activeProvider` | 문자열 | ✅ | 현재 활성 공급자의 name 값 |
-| `baseModel` | 문자열 | ✅ | base 에이전트가 사용하는 모델 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `providers` | array | ✅ | List of registered providers |
+| `providers[].name` | string | ✅ | Unique name of the provider |
+| `providers[].type` | string | ✅ | Provider type (see supported types below) |
+| `providers[].apiKey` | string | ✅ | API key for the provider |
+| `providers[].endpoint` | string | ❌ | Custom endpoint (required for custom-openai, custom-anthropic) |
+| `providers[].model` | string | ✅ | Model name to use |
+| `providers[].isDefault` | boolean | ✅ | Whether this is the default provider |
+| `activeProvider` | string | ✅ | Name value of the currently active provider |
+| `baseModel` | string | ✅ | Model used by the base agent |
 
-### 지원하는 공급자 타입
+### Supported Provider Types
 
-- `openai` — OpenAI API (GPT 시리즈)
-- `anthropic` — Anthropic API (Claude 시리즈)
+- `openai` — OpenAI API (GPT series)
+- `anthropic` — Anthropic API (Claude series)
 - `huggingface` — Hugging Face Inference API
-- `openrouter` — OpenRouter 통합 API
-- `custom-openai` — OpenAI 호환 커스텀 엔드포인트
-- `custom-anthropic` — Anthropic 호환 커스텀 엔드포인트
+- `openrouter` — OpenRouter unified API
+- `custom-openai` — OpenAI-compatible custom endpoint
+- `custom-anthropic` — Anthropic-compatible custom endpoint
 
-## 3. 공급자 추가 방법
+## 3. Adding a Provider
 
-casabot.json의 `providers` 배열에 새 항목을 추가합니다.
+> **Important:** Always read `~/casabot/casabot.json` first to check current settings. Ask the user which provider type, model name, and API key to use — do not assume or hardcode these values.
+
+Add a new entry to the `providers` array in casabot.json.
 
 ```bash
-# 새 공급자 추가 (jq 사용)
+# Add a new provider (using jq)
 cat ~/casabot/casabot.json | jq '.providers += [{
-  "name": "my-openai",
-  "type": "openai",
-  "apiKey": "sk-...",
-  "model": "gpt-4o",
+  "name": "<provider-name>",
+  "type": "<provider-type>",
+  "apiKey": "<api-key>",
+  "model": "<model-name>",
   "isDefault": false
 }]' > /tmp/casabot.json && mv /tmp/casabot.json ~/casabot/casabot.json
 ```
 
-### 커스텀 공급자 추가 예시
+### Adding a custom provider example
 
 ```bash
 cat ~/casabot/casabot.json | jq '.providers += [{
-  "name": "local-llm",
-  "type": "custom-openai",
-  "apiKey": "not-needed",
-  "endpoint": "http://localhost:11434/v1",
-  "model": "llama3",
+  "name": "<provider-name>",
+  "type": "<provider-type>",
+  "apiKey": "<api-key>",
+  "endpoint": "<endpoint-url>",
+  "model": "<model-name>",
   "isDefault": false
 }]' > /tmp/casabot.json && mv /tmp/casabot.json ~/casabot/casabot.json
 ```
 
-## 4. 활성 공급자 변경
+## 4. Changing Active Provider
 
-현재 사용하는 공급자를 변경합니다.
+Change the currently active provider.
 
 ```bash
-# activeProvider 변경
-cat ~/casabot/casabot.json | jq '.activeProvider = "my-openai"' > /tmp/casabot.json && mv /tmp/casabot.json ~/casabot/casabot.json
+# Change activeProvider
+cat ~/casabot/casabot.json | jq '.activeProvider = "<provider-name>"' > /tmp/casabot.json && mv /tmp/casabot.json ~/casabot/casabot.json
 ```
 
-### baseModel도 함께 변경
+### Also change baseModel
 
 ```bash
 cat ~/casabot/casabot.json | jq '
-  .activeProvider = "my-openai" |
-  .baseModel = "gpt-4o"
+  .activeProvider = "<provider-name>" |
+  .baseModel = "<model-name>"
 ' > /tmp/casabot.json && mv /tmp/casabot.json ~/casabot/casabot.json
 ```
 
-## 5. 현재 설정 확인
+## 5. Check Current Configuration
 
 ```bash
-# 전체 설정 보기
+# View full configuration
 cat ~/casabot/casabot.json | jq .
 
-# 활성 공급자만 확인
+# Check active provider only
 cat ~/casabot/casabot.json | jq '.activeProvider'
 
-# 등록된 공급자 목록
+# List registered providers
 cat ~/casabot/casabot.json | jq '.providers[] | {name, type, model}'
 ```
 
-## 6. 공급자 삭제
+## 6. Remove a Provider
 
 ```bash
-# 이름으로 공급자 삭제
-cat ~/casabot/casabot.json | jq '.providers = [.providers[] | select(.name != "삭제할-이름")]' > /tmp/casabot.json && mv /tmp/casabot.json ~/casabot/casabot.json
+# Remove provider by name
+cat ~/casabot/casabot.json | jq '.providers = [.providers[] | select(.name != "name-to-delete")]' > /tmp/casabot.json && mv /tmp/casabot.json ~/casabot/casabot.json
 ```
 
-## 7. 설정 초기화
+## 7. Reset Configuration
 
-전체 설정을 초기화하려면 `casabot setup` 명령어를 다시 실행합니다.
+To reset all configuration, run the `casabot setup` command again.
 
 ```bash
 casabot setup
 ```
 
-또는 설정 파일을 직접 초기화합니다:
+Or reset the configuration file directly:
 
 ```bash
 echo '{"providers":[],"activeProvider":"","baseModel":""}' > ~/casabot/casabot.json

@@ -1,223 +1,223 @@
 ---
-name: 기록
-description: base와 서브에이전트가 기록(memory)을 작성하고 조회하기 위한 매뉴얼
+name: Memory
+description: Manual for base and sub-agents to write and query memory
 metadata:
   casabot:
     requires:
       bins: []
 ---
 
-# 기록 (Memory)
+# Memory
 
-이 매뉴얼은 기억(History)과 기록(Memory)의 차이를 설명하고, 에이전트가 메모를 작성하고 조회하는 방법을 안내합니다.
+This manual explains the difference between History and Memory, and guides agents on how to write and query memos.
 
 ---
 
-## 1. 기억(History)과 기록(Memory)의 차이
+## 1. Difference between History and Memory
 
-CasAbot에는 두 가지 저장소가 있습니다. 반드시 구분하여 사용하세요.
+CasAbot has two storage systems. Make sure to use them correctly.
 
-### 기억 (History) — 대화 로그
+### History — Conversation Logs
 
-| 항목 | 설명 |
-|------|------|
-| **경로** | `~/casabot/history/` |
-| **형식** | JSON |
-| **작성자** | 시스템 (자동 저장) |
-| **수정 가능** | ❌ 수정 불가 |
-| **용도** | 대화 전체의 원본 기록 |
-| **내용** | 사용자 입력, 에이전트 응답, 도구 호출 결과 등 |
+| Item | Description |
+|------|-------------|
+| **Path** | `~/casabot/history/` |
+| **Format** | JSON |
+| **Author** | System (auto-saved) |
+| **Editable** | ❌ Read-only |
+| **Purpose** | Raw logs of entire conversations |
+| **Contents** | User input, agent responses, tool call results, etc. |
 
-### 기록 (Memory) — 에이전트 메모
+### Memory — Agent Memos
 
-| 항목 | 설명 |
-|------|------|
-| **경로** | `~/casabot/memory/` |
-| **형식** | Markdown (.md) |
-| **작성자** | 에이전트 (직접 작성) |
-| **수정 가능** | ✅ 자유롭게 수정 가능 |
-| **용도** | 중요한 정보, 학습 내용, 분석 결과 등을 기록 |
-| **내용** | 에이전트가 기억해야 할 사항 |
+| Item | Description |
+|------|-------------|
+| **Path** | `~/casabot/memory/` |
+| **Format** | Markdown (.md) |
+| **Author** | Agents (written directly) |
+| **Editable** | ✅ Freely editable |
+| **Purpose** | Record important information, learning outcomes, analysis results, etc. |
+| **Contents** | Things agents need to remember |
 
-### 핵심 원칙
+### Core Principles
 
-- **History는 절대 수정하지 않습니다.** 원본 대화 로그로서 보존됩니다.
-- **Memory는 에이전트가 자유롭게 작성·수정·삭제합니다.** 중요한 정보를 정리하는 공간입니다.
-- 대화에서 중요한 내용이 나오면, 그 내용을 Memory에 기록하세요.
+- **Never modify History.** It is preserved as the original conversation log.
+- **Memory is freely written, modified, and deleted by agents.** It is a space for organizing important information.
+- When important information comes up in conversation, record it in Memory.
 
-## 2. 기록 파일 위치
+## 2. Memory File Location
 
 ```
 ~/casabot/memory/
-├── 2024-01-15-프로젝트-분석.md
-├── 2024-01-16-서버-설정.md
-├── 사용자-선호도.md
-├── 자주-사용하는-명령어.md
+├── 2024-01-15-project-analysis.md
+├── 2024-01-16-server-setup.md
+├── user-preferences.md
+├── frequently-used-commands.md
 └── ...
 ```
 
-## 3. 기록 작성 규칙
+## 3. Writing Rules
 
-### 파일명 규칙
+### Filename Rules
 
-- **날짜 포함 (권장)**: `YYYY-MM-DD-주제.md` — 특정 시점의 기록
-- **날짜 미포함**: `주제.md` — 지속적으로 업데이트되는 기록
-- 한글, 영문, 숫자, 하이픈(`-`) 사용
-- 공백 대신 하이픈 사용
+- **With date (recommended)**: `YYYY-MM-DD-topic.md` — Record at a specific point in time
+- **Without date**: `topic.md` — Continuously updated record
+- Use alphanumeric characters and hyphens (`-`)
+- Use hyphens instead of spaces
 
-### 파일 형식
+### File Format
 
-모든 기록은 마크다운(.md) 형식으로 작성합니다.
+All memory files are written in Markdown (.md) format.
 
-### 기록 내용 구조 (권장)
+### Recommended Content Structure
 
 ```markdown
-# 제목
+# Title
 
-- **작성자**: 에이전트 이름
-- **날짜**: YYYY-MM-DD
-- **태그**: #키워드1 #키워드2
+- **Author**: agent name
+- **Date**: YYYY-MM-DD
+- **Tags**: #keyword1 #keyword2
 
-## 요약
-핵심 내용 한두 줄 요약
+## Summary
+One or two line summary of key content
 
-## 상세
-자세한 내용...
+## Details
+Detailed content...
 
-## 관련 항목
-- 관련 기록 파일명
-- 관련 대화 ID
+## Related Items
+- Related memory filenames
+- Related conversation IDs
 ```
 
-### 기록 작성 예시
+### Writing Example
 
 ```bash
-cat > ~/casabot/memory/2024-01-15-프로젝트-분석.md << 'EOF'
-# 프로젝트 분석 결과
+cat > ~/casabot/memory/2024-01-15-project-analysis.md << 'EOF'
+# Project Analysis Results
 
-- **작성자**: code-reviewer
-- **날짜**: 2024-01-15
-- **태그**: #프로젝트 #코드분석
+- **Author**: code-reviewer
+- **Date**: 2024-01-15
+- **Tags**: #project #code-analysis
 
-## 요약
-사용자의 Node.js 프로젝트를 분석한 결과, Express 기반 REST API 서버이며 TypeScript를 사용합니다.
+## Summary
+Analyzed the user's Node.js project. It is an Express-based REST API server using TypeScript.
 
-## 상세
-- 프레임워크: Express 4.18
-- 언어: TypeScript 5.3
-- 데이터베이스: PostgreSQL (Prisma ORM)
-- 테스트: Jest
-- 주요 엔드포인트: /api/users, /api/posts, /api/auth
+## Details
+- Framework: Express 4.18
+- Language: TypeScript 5.3
+- Database: PostgreSQL (Prisma ORM)
+- Testing: Jest
+- Main endpoints: /api/users, /api/posts, /api/auth
 
-## 개선 제안
-1. 에러 핸들링 미들웨어 추가
-2. 환경변수 검증 로직 추가
-3. API 문서화 (Swagger)
+## Improvement Suggestions
+1. Add error handling middleware
+2. Add environment variable validation logic
+3. API documentation (Swagger)
 EOF
 ```
 
-### 기록 업데이트 예시
+### Updating Memory Example
 
-지속적인 기록은 내용을 추가하거나 수정합니다:
+For ongoing records, append or modify content:
 
 ```bash
-# 기존 기록에 내용 추가
-cat >> ~/casabot/memory/사용자-선호도.md << 'EOF'
+# Append content to existing memory
+cat >> ~/casabot/memory/user-preferences.md << 'EOF'
 
-## 2024-01-16 추가
-- 코드 스타일: ESLint + Prettier 선호
-- 커밋 메시지: Conventional Commits 형식 선호
+## 2024-01-16 Update
+- Code style: Prefers ESLint + Prettier
+- Commit messages: Prefers Conventional Commits format
 EOF
 ```
 
-## 4. 기록 조회 및 검색
+## 4. Querying and Searching Memory
 
-### 전체 기록 목록
+### List all memory files
 
 ```bash
-# 최신순으로 기록 목록
+# List memory files (newest first)
 ls -lt ~/casabot/memory/
 
-# 파일명만 목록
+# List filenames only
 ls ~/casabot/memory/
 ```
 
-### 키워드 검색
+### Search by keyword
 
 ```bash
-# 전체 기록에서 키워드 검색
-grep -rl "검색어" ~/casabot/memory/
+# Search all memory files for a keyword
+grep -rl "keyword" ~/casabot/memory/
 
-# 검색 결과와 함께 맥락 보기 (앞뒤 2줄 포함)
-grep -rn -C 2 "검색어" ~/casabot/memory/
+# View search results with context (2 lines before/after)
+grep -rn -C 2 "keyword" ~/casabot/memory/
 ```
 
-### 태그 검색
+### Search by tag
 
 ```bash
-# 태그로 기록 찾기
-grep -rl "#프로젝트" ~/casabot/memory/
-grep -rl "#코드분석" ~/casabot/memory/
+# Find memory files by tag
+grep -rl "#project" ~/casabot/memory/
+grep -rl "#code-analysis" ~/casabot/memory/
 ```
 
-### 특정 기록 읽기
+### Read specific memory
 
 ```bash
-# 기록 전체 읽기
+# Read full memory file
 cat ~/casabot/memory/<filename>.md
 
-# 제목(h1)만 모아보기
+# View all titles (h1) at a glance
 grep "^# " ~/casabot/memory/*.md
 ```
 
-### 날짜별 검색
+### Search by date
 
 ```bash
-# 특정 날짜 이후 수정된 기록
+# Memory files modified after a specific date
 find ~/casabot/memory/ -name "*.md" -newermt "2024-01-15" -type f
 
-# 최근 7일 내 수정된 기록
+# Memory files modified in the last 7 days
 find ~/casabot/memory/ -name "*.md" -mtime -7 -type f
 
-# 파일명에 날짜가 포함된 기록 검색
+# Search memory files with date in filename
 ls ~/casabot/memory/2024-01-*.md 2>/dev/null
 ```
 
-### 작성자별 검색
+### Search by author
 
 ```bash
-# 특정 에이전트가 작성한 기록
-grep -rl "작성자.*code-reviewer" ~/casabot/memory/
+# Find memory files written by a specific agent
+grep -rl "Author.*code-reviewer" ~/casabot/memory/
 ```
 
-## 5. 기록 관리
+## 5. Memory Management
 
-### 기록 삭제
+### Delete memory
 
 ```bash
 rm ~/casabot/memory/<filename>.md
 ```
 
-### 기록 백업
+### Backup memory
 
 ```bash
-# 전체 기록 백업
+# Backup all memory files
 tar czf ~/casabot-memory-backup-$(date +%Y%m%d).tar.gz ~/casabot/memory/
 ```
 
-### 오래된 기록 아카이브
+### Archive old memory
 
 ```bash
-# 아카이브 디렉토리 생성
+# Create archive directory
 mkdir -p ~/casabot/memory/archive
 
-# 30일 이상 된 기록 이동
+# Move memory files older than 30 days
 find ~/casabot/memory/ -maxdepth 1 -name "*.md" -mtime +30 -exec mv {} ~/casabot/memory/archive/ \;
 ```
 
-## 6. 서브에이전트의 기록 작성
+## 6. Sub-agent Memory Writing
 
-서브에이전트도 동일한 `~/casabot/memory/` 디렉토리에 기록을 작성할 수 있습니다. 컨테이너에 memory 디렉토리를 마운트합니다:
+Sub-agents can also write memory to the same `~/casabot/memory/` directory. Mount the memory directory to the container:
 
 ```bash
 podman run -d \
@@ -229,17 +229,17 @@ podman run -d \
   node:20-slim sleep infinity
 ```
 
-서브에이전트 내부에서:
+Inside the sub-agent:
 
 ```bash
-# 기록 작성
-cat > /memory/2024-01-15-분석결과.md << 'EOF'
-# 분석 결과
-- **작성자**: <agent-name>
+# Write memory
+cat > /memory/2024-01-15-analysis-results.md << 'EOF'
+# Analysis Results
+- **Author**: <agent-name>
 ...
 EOF
 
-# 기록 조회
+# Query memory
 ls /memory/
 cat /memory/<filename>.md
 ```

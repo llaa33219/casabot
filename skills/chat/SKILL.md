@@ -1,32 +1,32 @@
 ---
-name: 대화 관리
-description: 대화 세션을 관리하고 외부 서비스와 연동하기 위한 매뉴얼
+name: Conversation Management
+description: Manual for managing conversation sessions and integrating with external services
 metadata:
   casabot:
     requires:
       bins: []
 ---
 
-# 대화 관리
+# Conversation Management
 
-이 매뉴얼은 대화 세션의 생성·조회·검색 방법과 외부 서비스 연동 방법을 설명합니다.
+This manual explains how to create, view, and search conversation sessions, and how to integrate with external services.
 
 ---
 
-## 1. 대화 세션 관리
+## 1. Session Management
 
-### 세션 구조
+### Session Structure
 
-각 대화 세션은 `~/casabot/history/` 디렉토리에 JSON 파일로 자동 저장됩니다.
+Each conversation session is automatically saved as a JSON file in the `~/casabot/history/` directory.
 
 ```json
 {
-  "id": "세션 고유 ID",
+  "id": "unique session ID",
   "startedAt": "2024-01-15T09:30:00.000Z",
   "messages": [
     {
       "role": "user | assistant | system | tool",
-      "content": "메시지 내용",
+      "content": "message content",
       "toolCalls": [],
       "toolCallId": ""
     }
@@ -34,117 +34,117 @@ metadata:
 }
 ```
 
-### 세션 생명주기
-- **생성**: `casabot` 명령어를 실행하면 새 세션이 자동 생성됩니다.
-- **유지**: 대화가 진행되는 동안 메시지가 자동으로 추가됩니다.
-- **종료**: 프로그램을 종료하면 세션이 닫힙니다.
-- **보존**: 종료 후에도 기록은 history 디렉토리에 영구 보존됩니다.
+### Session Lifecycle
+- **Creation**: A new session is automatically created when you run the `casabot` command.
+- **Persistence**: Messages are automatically appended as the conversation progresses.
+- **Termination**: The session closes when the program exits.
+- **Preservation**: Logs are permanently preserved in the history directory after termination.
 
-## 2. 대화 불러오기
+## 2. Loading Conversations
 
-### 최근 대화 목록 확인
+### View recent conversation list
 
 ```bash
-# 최근 대화 20개 (최신순)
+# Recent 20 conversations (newest first)
 ls -lt ~/casabot/history/ | head -20
 
-# 파일명과 크기 확인
+# Check filenames and sizes
 ls -lhS ~/casabot/history/
 ```
 
-### 특정 대화 내용 보기
+### View specific conversation
 
 ```bash
-# 대화 전체 보기 (정리된 형태)
+# View full conversation (formatted)
 cat ~/casabot/history/<conversation-id>.json | jq '.messages[] | {role, content: .content[:100]}'
 
-# 사용자 메시지만 보기
+# View only user messages
 cat ~/casabot/history/<conversation-id>.json | jq '.messages[] | select(.role == "user") | .content'
 
-# 어시스턴트 응답만 보기
+# View only assistant responses
 cat ~/casabot/history/<conversation-id>.json | jq '.messages[] | select(.role == "assistant") | .content'
 ```
 
-### 세션 메타정보 확인
+### Check session metadata
 
 ```bash
-# 세션 ID와 시작 시간
+# Session ID and start time
 cat ~/casabot/history/<conversation-id>.json | jq '{id, startedAt, messageCount: (.messages | length)}'
 ```
 
-## 3. 이전 대화 검색
+## 3. Searching Previous Conversations
 
-### 키워드로 검색
+### Search by keyword
 
 ```bash
-# 모든 대화에서 키워드 검색
-grep -rl "검색어" ~/casabot/history/
+# Search all conversations for a keyword
+grep -rl "keyword" ~/casabot/history/
 
-# 키워드가 포함된 대화의 맥락 보기
-grep -l "검색어" ~/casabot/history/*.json | while read f; do
+# View context of conversations containing the keyword
+grep -l "keyword" ~/casabot/history/*.json | while read f; do
   echo "=== $(basename $f) ==="
-  cat "$f" | jq '.messages[] | select(.content | contains("검색어")) | {role, content: .content[:200]}'
+  cat "$f" | jq '.messages[] | select(.content | contains("keyword")) | {role, content: .content[:200]}'
 done
 ```
 
-### 날짜로 검색
+### Search by date
 
 ```bash
-# 특정 날짜 이후의 대화
+# Conversations after a specific date
 find ~/casabot/history/ -name "*.json" -newermt "2024-01-15" -type f
 
-# 오늘 대화만
+# Today's conversations only
 find ~/casabot/history/ -name "*.json" -newermt "$(date +%Y-%m-%d)" -type f
 
-# 최근 7일간 대화
+# Conversations from the last 7 days
 find ~/casabot/history/ -name "*.json" -mtime -7 -type f
 ```
 
-### 역할별 검색
+### Search by role
 
 ```bash
-# 도구 호출이 포함된 대화 찾기
+# Find conversations with tool calls
 grep -rl "toolCalls" ~/casabot/history/ | head -10
 
-# 특정 도구가 사용된 대화
+# Find conversations where a specific tool was used
 grep -rl "run_command" ~/casabot/history/
 ```
 
-## 4. 대화 통계
+## 4. Conversation Statistics
 
 ```bash
-# 전체 대화 수
+# Total number of conversations
 ls ~/casabot/history/*.json 2>/dev/null | wc -l
 
-# 가장 긴 대화 (메시지 수 기준)
+# Longest conversations (by message count)
 for f in ~/casabot/history/*.json; do
   echo "$(cat "$f" | jq '.messages | length') $(basename $f)"
 done | sort -rn | head -10
 ```
 
-## 5. 외부 서비스 연동
+## 5. External Service Integration
 
-외부 메시징 서비스(WhatsApp, Discord, Telegram, Slack 등)와 연동하여 CasAbot을 사용할 수 있습니다.
+CasAbot can be used through integration with external messaging services (WhatsApp, Discord, Telegram, Slack, etc.).
 
-### 연동 구조
+### Integration Architecture
 
 ```
-외부 서비스 → [연동 서브에이전트] → base 에이전트 → [작업 서브에이전트들]
-                                    ↓
-                              사용자에게 응답
+External Service → [Integration Sub-Agent] → base agent → [Task Sub-Agents]
+                                               ↓
+                                         Response to user
 ```
 
-### 연동 설정 단계
+### Integration Setup Steps
 
-1. **연동 서브에이전트 생성** — `agent` 스킬을 참조하여 연동 전용 컨테이너를 만듭니다.
-2. **서비스 API/봇 설정** — 해당 서비스의 봇 토큰이나 웹훅 URL을 설정합니다.
-3. **메시지 수신** — 서비스에서 메시지를 수신하면 base에게 전달합니다.
-4. **응답 전송** — base의 응답을 서비스로 돌려보냅니다.
+1. **Create integration sub-agent** — Refer to the `agent` skill to create a dedicated integration container.
+2. **Configure service API/bot** — Set up the bot token or webhook URL for the target service.
+3. **Receive messages** — When a message is received from the service, forward it to base.
+4. **Send responses** — Send base's response back to the service.
 
-### 예시: 웹훅 기반 연동
+### Example: Webhook-based integration
 
 ```bash
-# 연동 에이전트 생성 (agent 스킬 참조)
+# Create integration agent (see agent skill)
 podman run -d \
   --name webhook-bridge \
   --label casabot=true \
@@ -153,13 +153,13 @@ podman run -d \
   -v ~/casabot/skills:/skills:ro \
   node:20-slim sleep infinity
 
-# 웹훅 서버 스크립트를 에이전트에 배포
+# Deploy webhook server script to agent
 podman cp webhook-server.js webhook-bridge:/workspace/
 podman exec -d webhook-bridge node /workspace/webhook-server.js
 ```
 
-## 6. 주의사항
+## 6. Important Notes
 
-- **기록은 수정하지 마세요**: `~/casabot/history/`의 파일은 원본 로그입니다. 수정이 필요하면 별도 사본을 만드세요.
-- **메모가 필요하면 memory를 사용하세요**: 대화에서 중요한 내용을 기록하려면 `memory` 스킬을 참조하세요.
-- **대용량 기록 관리**: 기록이 많아지면 오래된 파일을 아카이브하거나 압축하세요.
+- **Do not modify history files**: Files in `~/casabot/history/` are raw logs. If you need modifications, create a separate copy.
+- **Use memory for notes**: If you need to record important information from conversations, refer to the `memory` skill.
+- **Managing large volumes of history**: If logs accumulate, archive or compress older files.
