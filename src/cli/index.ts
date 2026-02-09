@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { Command } from "commander";
@@ -10,23 +9,16 @@ import { loadSkills } from "../skills/loader.js";
 import { createConversation } from "../history/store.js";
 import { startTUI } from "../tui/app.js";
 import { setupWizard } from "./setup.js";
+import { renderBrailleLogo } from "./braille-logo.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function displayLogo(): Promise<void> {
   try {
-    const require = createRequire(import.meta.url);
-    const asciify = require("asciify-image") as (
-      path: string,
-      opts: Record<string, unknown>,
-    ) => Promise<string>;
     const logoPath = join(__dirname, "..", "..", "Logo2.png");
-    const ascii = await asciify(logoPath, {
-      fit: "box",
-      width: "50%",
-      color: true,
-    });
-    console.log(ascii);
+    const maxWidth = Math.min(process.stdout.columns || 80, 80);
+    const art = await renderBrailleLogo(logoPath, maxWidth);
+    console.log(art);
     console.log("");
   } catch {
     // Logo display is non-critical; silently skip on failure
