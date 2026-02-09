@@ -4,7 +4,7 @@ import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
 import Gradient from "ink-gradient";
 import { marked } from "marked";
-import markedTerminal from "marked-terminal";
+import { markedTerminal } from "marked-terminal";
 import type { ChatProvider } from "../providers/base.js";
 import type { ConversationHistory, Message, Skill } from "../config/types.js";
 import { runAgent } from "../agent/base.js";
