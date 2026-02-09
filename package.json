@@ -1,6 +1,6 @@
 {
   "name": "casabot",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CasAbot — Skill-driven multi-agent orchestrator system",
   "type": "module",
   "main": "dist/index.js",
@@ -16,7 +16,14 @@
     "reset": "tsx src/cli/index.ts reset",
     "prepare": "npm run build"
   },
-  "keywords": ["ai", "agent", "multi-agent", "orchestrator", "tui", "cli"],
+  "keywords": [
+    "ai",
+    "agent",
+    "multi-agent",
+    "orchestrator",
+    "tui",
+    "cli"
+  ],
   "author": "",
   "license": "Apache-2.0",
   "dependencies": {
@@ -24,7 +31,7 @@
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
     "gray-matter": "^4.0.3",
-    "ink": "^5.2.0",
+    "ink": "^6.6.0",
     "marked": "^15.0.12",
     "marked-terminal": "^7.3.0",
     "openai": "^5.1.0",
