@@ -57,7 +57,8 @@ User ↔ TUI (Terminal UI) ↔ Base Agent (terminal access)
 │   ├── config/SKILL.md   # CasAbot configuration
 │   ├── chat/SKILL.md     # Conversation management
 │   ├── service/SKILL.md  # System service registration
-│   └── memory/SKILL.md   # Memory management
+│   ├── memory/SKILL.md   # Memory management
+│   └── subskills/SKILL.md # Sub-agent skill attachment and management
 ├── workspaces/           # Per-agent workspaces
 ├── history/              # Full conversation logs (raw)
 └── memory/               # Agent-authored notes (.md)
@@ -83,6 +84,7 @@ User ↔ TUI (Terminal UI) ↔ Base Agent (terminal access)
 | `chat` | Conversation session management and search |
 | `service` | systemd service registration and automation |
 | `memory` | Write, query, and search agent notes |
+| `subskills` | Attach and manage skills available to sub-agents |
 
 ## Adding Skills
 

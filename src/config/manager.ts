@@ -13,7 +13,7 @@ export const PATHS = {
   memory: join(CASABOT_HOME, "memory"),
 } as const;
 
-const SKILL_DIRS = ["agent", "config", "chat", "service", "memory"];
+const SKILL_DIRS = ["agent", "config", "chat", "service", "memory", "subskills"];
 
 export function getDefaultConfig(): CasabotConfig {
   return {

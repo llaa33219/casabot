@@ -25,7 +25,8 @@ All CasAbot data is stored under `~/casabot/`.
 │   ├── config/           # Configuration management (this document)
 │   ├── chat/             # Conversation management
 │   ├── service/          # System service registration
-│   └── memory/           # Memory (memo) management
+│   ├── memory/           # Memory (memo) management
+│   └── subskills/        # Sub-agent skill attachment and management
 ├── workspaces/           # Per-agent workspaces
 │   └── <agent-name>/     # Individual agent working directory
 │       └── output/       # Agent output results

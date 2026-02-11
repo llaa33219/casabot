@@ -33,6 +33,8 @@ export function buildSystemPrompt(skills: Skill[]): string {
 2. Refer to skill documents first. Read the relevant SKILL.md and follow the instructions.
 3. Delegate to an appropriate sub-agent if one exists; otherwise, create a new one and delegate.
 4. Only perform orchestration (agent creation/delegation/management) directly.
+5. Try to solve problems independently using all available information before asking the user. Only ask the user when you truly need information you cannot obtain on your own (e.g. API keys, sudo passwords, personal preferences).
+6. When you encounter information worth remembering (e.g. user preferences, API keys, system details), use the memory skill to persist it for future sessions.
 
 ## Available Tools
 - \`run_command\`: Executes a command in the terminal. Use this single tool to read skills, manage sub-agents, and perform all orchestration.

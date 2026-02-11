@@ -15,7 +15,7 @@ This manual explains how the base agent creates and manages podman-based sub-age
 
 ## 1. Install podman
 
-podman must be installed before creating sub-agents.
+podman is needed before creating sub-agents.
 
 ### Step 1: Check if podman is already installed
 
@@ -25,27 +25,21 @@ which podman && podman --version
 
 If podman is found, skip to Section 2.
 
-### Step 2: Gather requirements from the user
+### Step 2: Gather system information
 
-> **Important:** Before installing podman, you **must** ask the user the following questions. Do not assume or proceed without their answers.
+Try to detect as much as possible automatically before involving the user.
 
-1. **Detect or ask the distro:**
-   ```bash
-   cat /etc/os-release
-   ```
-   If the distro cannot be determined, ask the user: *"Which Linux distribution are you using? (e.g. Ubuntu, Fedora, Arch, Debian, RHEL, etc.)"*
+```bash
+# Detect distro
+cat /etc/os-release
 
-2. **Ask about sudo privileges:**
-   *"Do you have sudo (root) privileges on this system?"*
-   — If the user does not have sudo, guide them to request it from an administrator, or suggest rootless podman setup if possible.
+# Check if sudo is available
+sudo -n true 2>/dev/null && echo "sudo: available" || echo "sudo: not available"
+```
 
-3. **Ask about rootless mode:**
-   *"Would you like to run podman in rootless mode (recommended for security)?"*
+If auto-detection fails or sudo is unavailable, ask the user for clarification. You may also ask about preferences like rootless mode or custom storage locations if relevant.
 
-4. **Ask about special requirements:**
-   *"Do you have any specific requirements? (e.g. a particular podman version, a custom storage location, proxy settings, etc.)"*
-
-### Step 3: Install podman based on user's answers
+### Step 3: Install podman
 
 ```bash
 # Debian / Ubuntu
@@ -61,7 +55,7 @@ sudo pacman -S podman
 sudo zypper install -y podman
 ```
 
-If the user requested rootless mode, also configure subuid/subgid:
+If rootless mode is desired, configure subuid/subgid:
 
 ```bash
 sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $(whoami)
@@ -75,6 +69,8 @@ podman --version
 podman info
 ```
 
+Consider using the memory skill to save the detected distro and podman version for future reference.
+
 ## 2. Configure podman storage
 
 Check the path where container images and layers are stored, and verify sufficient disk space.
@@ -87,11 +83,11 @@ podman info --format '{{.Store.GraphRoot}}'
 df -h $(podman info --format '{{.Store.GraphRoot}}')
 ```
 
-If space is insufficient, change `graphroot` in `~/.config/containers/storage.conf`.
+If space is insufficient, `graphroot` in `~/.config/containers/storage.conf` can be adjusted.
 
 ## 3. Create sub-agent container
 
-All sub-agent containers must be assigned the `casabot` label.
+All sub-agent containers should be assigned the `casabot` label for identification.
 
 ```bash
 # Create a new agent container
@@ -103,7 +99,7 @@ podman run -d \
   node:20-slim sleep infinity
 ```
 
-### Required rules
+### Recommended conventions
 - `--label casabot=true`: Used to identify all CasAbot sub-agents.
 - `-v ~/casabot/workspaces/<agent-name>:/workspace`: Mounts a dedicated workspace for each agent.
 - `-v ~/casabot/skills:/skills:ro`: Shares the skills directory as read-only.
@@ -117,7 +113,9 @@ podman exec <agent-name> node /workspace/agent.js
 
 ## 4. Pass provider settings
 
-> **Important:** Read the current provider settings from `~/casabot/casabot.json` or ask the user for the provider type, API key, and model name. Do not hardcode these values.
+Provider settings can be read from `~/casabot/casabot.json`. If the file is unavailable or incomplete, ask the user for the provider type, API key, and model name.
+
+When sensitive information like API keys is obtained, consider persisting it via the memory skill so it doesn't need to be requested again.
 
 Pass LLM provider information to sub-agents via environment variables.
 
@@ -131,7 +129,7 @@ podman exec \
   <agent-name> node /workspace/agent.js
 ```
 
-Or set them in advance with `-e` options when creating the container:
+Or set them when creating the container:
 
 ```bash
 podman run -d \
@@ -158,7 +156,69 @@ cat /skills/memory/SKILL.md
 ls /skills/
 ```
 
-## 6. List agents
+## 6. Pass subskills
+
+Each skill directory can contain a `subskills/` subdirectory with skills specifically intended for sub-agents. When delegating a task, consider checking for relevant subskills to pass along.
+
+> **Note:** The full skills mount (`-v ~/casabot/skills:/skills:ro` from Section 3) already includes all `subskills/` directories. The separate mount shown below is an alternative for providing targeted access to specific subskills.
+
+### Discover available subskills
+
+```bash
+# List all subskills across all skill directories
+find ~/casabot/skills/*/subskills -name "SKILL.md" 2>/dev/null
+
+# List subskills for a specific skill
+ls ~/casabot/skills/agent/subskills/ 2>/dev/null
+
+# Search subskills by keyword
+grep -rl "keyword" ~/casabot/skills/*/subskills/ 2>/dev/null
+```
+
+### Mount subskills into a sub-agent container
+
+```bash
+# Mount a specific skill's subskills
+podman run -d \
+  --name <agent-name> \
+  --label casabot=true \
+  -v ~/casabot/skills/agent/subskills:/subskills:ro \
+  -v ~/casabot/workspaces/<agent-name>:/workspace \
+  node:20-slim sleep infinity
+```
+
+Or copy specific subskill documents:
+
+```bash
+podman cp ~/casabot/skills/agent/subskills/python-dev/SKILL.md \
+  <agent-name>:/workspace/skills/python-dev/SKILL.md
+```
+
+### Create new subskills
+
+If a task requires capabilities not yet covered by existing subskills, the agent can search the web for relevant tools, libraries, or techniques and write a new subskill document.
+
+```bash
+mkdir -p ~/casabot/skills/<skill>/subskills/<new-subskill>
+cat > ~/casabot/skills/<skill>/subskills/<new-subskill>/SKILL.md << 'EOF'
+---
+name: New Subskill
+description: What this subskill provides
+metadata:
+  casabot:
+    requires:
+      bins: []
+---
+
+# New Subskill
+
+(Instructions for sub-agents)
+EOF
+```
+
+Users can also add subskill documents manually at any time. Refer to the `subskills` skill for detailed guidance.
+
+## 7. List agents
 
 Query all containers with the `casabot` label.
 
@@ -170,7 +230,7 @@ podman ps --filter "label=casabot" --format "{{.Names}}\t{{.Status}}"
 podman ps -a --filter "label=casabot" --format "table {{.Names}}\t{{.Status}}\t{{.Created}}"
 ```
 
-## 7. Destroy and clean up agents
+## 8. Destroy and clean up agents
 
 Clean up agents that are no longer needed.
 
@@ -190,7 +250,7 @@ podman ps -a --filter "label=casabot" --format "{{.Names}}" | xargs -r podman st
 podman ps -a --filter "label=casabot" --format "{{.Names}}" | xargs -r podman rm
 ```
 
-## 8. Delegate tasks
+## 9. Delegate tasks
 
 How to pass tasks to sub-agents.
 
@@ -204,11 +264,11 @@ podman exec <agent-name> node /workspace/agent.js --task /workspace/task.txt
 ```
 
 ### Delegation principles
-- base is an orchestrator. Delegate actual work to sub-agents.
-- If no suitable sub-agent exists, create a new one and delegate.
-- Write task descriptions clearly and specifically.
+- The base agent is an orchestrator. Actual work is typically delegated to sub-agents.
+- If no suitable sub-agent exists, a new one can be created for the task.
+- Clear and specific task descriptions tend to produce better results.
 
-## 9. Collect results
+## 10. Collect results
 
 Check the results of sub-agent work.
 
@@ -226,4 +286,4 @@ ls ~/casabot/workspaces/<agent-name>/output/
 cat ~/casabot/workspaces/<agent-name>/output/result.txt
 ```
 
-After collecting results, summarize and report to the user.
+After collecting results, the findings can be summarized and reported to the user.

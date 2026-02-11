@@ -108,7 +108,8 @@ ls ~/casabot/workspaces/<agent-name>/output/
 │   ├── config/
 │   ├── chat/
 │   ├── service/
-│   └── memory/
+│   ├── memory/
+│   └── subskills/
 ├── workspaces/           # Per-agent workspaces
 ├── history/              # Full conversation logs (raw logs)
 └── memory/               # Agent-written memos (.md)
@@ -277,6 +278,63 @@ grep -rl "keyword" ~/casabot/memory/
 
 # Read specific memory file
 cat ~/casabot/memory/<filename>.md
+\`\`\``,
+    },
+    subskills: {
+      name: "Sub-Agent Skills (subskills)",
+      description: "Manual for attaching and managing skills available to sub-agents",
+      content: `# Sub-Agent Skills (subskills)
+
+## What is /subskills?
+Each skill directory can contain a \`/subskills\` subdirectory holding skill documents intended for sub-agents.
+
+\`\`\`
+~/casabot/skills/
+├── agent/
+│   ├── SKILL.md
+│   └── subskills/
+│       ├── python-dev/SKILL.md
+│       └── web-scraper/SKILL.md
+└── subskills/
+    └── SKILL.md
+\`\`\`
+
+## Who can add subskills?
+- **Agents**: Search for tools/techniques and write subskill documents autonomously.
+- **Users**: Place skill documents directly into any \`/subskills\` directory.
+
+\`\`\`bash
+# Create a subskill
+mkdir -p ~/casabot/skills/agent/subskills/python-dev
+cat > ~/casabot/skills/agent/subskills/python-dev/SKILL.md << 'EOF'
+---
+name: Python Development
+description: Guidelines for Python-based sub-agents
+metadata:
+  casabot:
+    requires:
+      bins: [python3]
+---
+# Python Development
+Instructions for sub-agents...
+EOF
+\`\`\`
+
+## Passing subskills to sub-agents
+\`\`\`bash
+# Mount subskills into container
+podman run -d --name <agent-name> --label casabot=true \\
+  -v ~/casabot/skills/agent/subskills:/subskills:ro \\
+  -v ~/casabot/workspaces/<agent-name>:/workspace \\
+  node:20-slim sleep infinity
+\`\`\`
+
+## Listing and searching
+\`\`\`bash
+# List all subskills
+find ~/casabot/skills/*/subskills -name "SKILL.md" 2>/dev/null
+# Search by keyword
+grep -rl "keyword" ~/casabot/skills/*/subskills/ 2>/dev/null
 \`\`\``,
     },
   };
